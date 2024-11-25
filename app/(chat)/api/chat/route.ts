@@ -67,8 +67,7 @@ export async function POST(request: Request) {
     stream: true,
   })
 
-  const stream = AnthropicStream(response)
-
+  const stream = response.toReadableStream()
   return new StreamingTextResponse(stream)
 }
 

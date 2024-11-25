@@ -61,7 +61,7 @@ export async function POST(request: Request) {
   })
 
   const response = await anthropic.completions.create({
-    model: 'claude-2',
+    model: model.apiIdentifier,
     max_tokens_to_sample: 1000,
     prompt: `${systemPrompt}\n\nHuman: ${userMessage.content}\n\nAssistant:`,
     stream: true,
@@ -102,4 +102,3 @@ export async function DELETE(request: Request) {
     })
   }
 }
-

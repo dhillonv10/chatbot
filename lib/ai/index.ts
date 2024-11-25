@@ -1,11 +1,18 @@
-import { openai } from '@ai-sdk/openai';
-import { experimental_wrapLanguageModel as wrapLanguageModel } from 'ai';
+import { Anthropic } from '@anthropic-ai/sdk'
 
-import { customMiddleware } from './custom-middleware';
+// Initialize the Anthropic client
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+})
 
-export const customModel = (apiIdentifier: string) => {
-  return wrapLanguageModel({
-    model: openai(apiIdentifier),
-    middleware: customMiddleware,
-  });
-};
+// Custom model function (adjust as needed for your use case)
+export const customModel = (model: string) => {
+  return async (prompt: string) => {
+    const response = await anthropic.completions.create({
+      model: model,
+      prompt: prompt,
+      max_tokens_to_sample: 1000,
+    })
+    return response.completion
+  }
+}

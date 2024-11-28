@@ -5,10 +5,10 @@ import { customMiddleware } from './custom-middleware';
 export const customModel = (apiIdentifier: string) => {
   return wrapLanguageModel({
     model: {
-      stream: async (messages, options) => {
+      doStream: async (messages, options) => {
         return await claudeStream(messages, apiIdentifier);
       },
-      completion: async (messages, options) => {
+      doCompletion: async (messages, options) => {
         return await claudeCompletion(messages, apiIdentifier);
       }
     },

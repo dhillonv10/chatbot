@@ -1,25 +1,16 @@
-// Define your models here.
-
-export interface Model {
-  id: string;
-  label: string;
-  apiIdentifier: string;
-  description: string;
-}
-
-export const models: Array<Model> = [
-  {
-    id: 'gpt-4o-mini',
-    label: 'GPT 4o mini',
-    apiIdentifier: 'gpt-4o-mini',
-    description: 'Small model for fast, lightweight tasks',
+export const models = {
+  claude: {
+    id: 'claude-2',
+    name: 'Claude 2',
+    description: 'Most capable model for complex tasks',
+    maxTokens: 100000
   },
-  {
-    id: 'gpt-4o',
-    label: 'GPT 4o',
-    apiIdentifier: 'gpt-4o',
-    description: 'For complex, multi-step tasks',
-  },
-] as const;
+  claudeInstant: {
+    id: 'claude-instant-1',
+    name: 'Claude Instant',
+    description: 'Faster and more cost-effective for simpler tasks',
+    maxTokens: 100000
+  }
+} as const;
 
-export const DEFAULT_MODEL_NAME: string = 'gpt-4o-mini';
+export type ModelId = keyof typeof models;

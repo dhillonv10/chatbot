@@ -1,103 +1,58 @@
-import { AnthropicStream, StreamingTextResponse, Message } from 'ai'
-import { Anthropic } from '@anthropic-ai/sdk'
-import { auth } from '@/app/(auth)/auth'
-import { models } from '@/lib/ai/models'
-import { systemPrompt } from '@/lib/ai/prompts'
-import {
-  deleteChatById,
-  getChatById,
-  getDocumentById,
-  saveChat,
-  saveDocument,
-  saveMessages,
-  saveSuggestions,
-} from '@/lib/db/queries'
-import type { Suggestion } from '@/lib/db/schema'
-import {
-  generateUUID,
-  getMostRecentUserMessage,
-  sanitizeResponseMessages,
-} from '@/lib/utils'
-import { generateTitleFromUserMessage } from '../../actions'
+import { AnthropicStream } from '@/lib/ai';
+import { models } from '@/lib/ai/models';
+import { prompts } from '@/lib/ai/prompts';
+import { auth } from '@/auth';
+import { kv } from '@vercel/kv';
+import { Ratelimit } from '@upstash/ratelimit';
+import { redis } from '@/lib/redis';
 
-export const maxDuration = 60
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '',
-})
-
-export async function POST(request: Request) {
-  const { id, messages, modelId }: { id: string; messages: Array<Message>; modelId: string } = await request.json()
-
-  const session = await auth()
-
-  if (!session || !session.user || !session.user.id) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-
-  const model = models.find((model) => model.id === modelId)
-
-  if (!model) {
-    return new Response('Model not found', { status: 404 })
-  }
-
-  const userMessage = getMostRecentUserMessage(messages)
-
-  if (!userMessage) {
-    return new Response('No user message found', { status: 400 })
-  }
-
-  const chat = await getChatById({ id })
-
-  if (!chat) {
-    const title = await generateTitleFromUserMessage({ message: userMessage.content })
-    await saveChat({ id, userId: session.user.id, title })
-  }
-
-  await saveMessages({
-    messages: [
-      { ...userMessage, id: generateUUID(), createdAt: new Date(), chatId: id },
-    ],
-  })
-
-  const response = await anthropic.completions.create({
-    model: model.apiIdentifier,
-    max_tokens_to_sample: 1000,
-    prompt: `${systemPrompt}\n\nHuman: ${userMessage.content}\n\nAssistant:`,
-    stream: true,
-  })
-
-  const stream = response.toReadableStream()
-  return new StreamingTextResponse(stream)
-}
-
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url)
-  const id = searchParams.get('id')
-
-  if (!id) {
-    return new Response('Not Found', { status: 404 })
-  }
-
-  const session = await auth()
-
-  if (!session || !session.user) {
-    return new Response('Unauthorized', { status: 401 })
-  }
-
+export async function POST(req: Request) {
   try {
-    const chat = await getChatById({ id })
+    const json = await req.json();
+    const { messages, previewToken } = json;
+    const userId = (await auth())?.user.id;
 
-    if (chat.userId !== session.user.id) {
-      return new Response('Unauthorized', { status: 401 })
+    if (!userId) {
+      return new Response('Unauthorized', { status: 401 });
     }
 
-    await deleteChatById({ id })
+    // Rate limiting
+    const ratelimit = new Ratelimit({
+      redis,
+      limiter: Ratelimit.slidingWindow(20, '1 d')
+    });
 
-    return new Response('Chat deleted', { status: 200 })
+    const { success } = await ratelimit.limit(userId);
+    if (!success) {
+      return new Response('Too Many Requests', { status: 429 });
+    }
+
+    // Add default message if conversation is empty
+    if (messages.length === 0) {
+      messages.push({
+        role: 'assistant',
+        content: prompts.defaultMessage
+      });
+    }
+
+    const response = await AnthropicStream(messages, models.claude.id);
+    
+    // Store conversation history
+    if (userId) {
+      const timestamp = Date.now();
+      const id = messages[0]?.id ?? `message-${timestamp}`;
+      
+      await kv.hset(`chat:${id}`, {
+        id,
+        userId,
+        messages,
+        timestamp
+      });
+    }
+
+    return response;
   } catch (error) {
-    return new Response('An error occurred while processing your request', {
-      status: 500,
-    })
+    console.error('Chat API Error:', error);
+    return new Response(prompts.errorMessage, { status: 500 });
   }
 }

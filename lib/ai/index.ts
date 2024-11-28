@@ -5,7 +5,6 @@ import { customMiddleware } from './custom-middleware';
 export const customModel = (apiIdentifier: string) => {
   return wrapLanguageModel({
     model: {
-      id: apiIdentifier,
       stream: async (messages, options) => {
         return await claudeStream(messages, apiIdentifier);
       },

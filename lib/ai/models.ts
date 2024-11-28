@@ -1,3 +1,5 @@
+// Define your models here.
+
 export interface Model {
   id: string;
   label: string;
@@ -7,23 +9,11 @@ export interface Model {
 
 export const models: Array<Model> = [
   {
-    id: 'claude-3-opus',
-    label: 'Claude 3 Opus',
-    apiIdentifier: 'claude-3-opus-20240229',
-    description: 'Most capable model for highly complex tasks',
-  },
-  {
     id: 'claude-3-sonnet',
-    label: 'Claude 3 Sonnet', 
-    apiIdentifier: 'claude-3-sonnet-20240229',
-    description: 'Ideal balance of intelligence and speed',
-  },
-  {
-    id: 'claude-3-haiku',
-    label: 'Claude 3 Haiku',
-    apiIdentifier: 'claude-3-haiku-20240229', 
-    description: 'Fastest model for simple tasks',
+    label: 'Claude 3 Sonnet',
+    apiIdentifier: 'claude-3-5-sonnet-20241022',
+    description: 'Latest Claude model for advanced reasoning and conversation',
   }
 ] as const;
 
-export const DEFAULT_MODEL_NAME = 'claude-3-sonnet';
+export const DEFAULT_MODEL_NAME: string = 'claude-3-sonnet';

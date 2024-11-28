@@ -212,7 +212,7 @@ export async function POST(request: Request) {
                 role: 'user',
                 content: description,
               },
-              { role: 'assistant', content: currentContent },
+              { role: 'assistant', content: currentContent || '' },
             ],
           });
 

@@ -1,16 +1,29 @@
-export const models = {
-  claude: {
-    id: 'claude-2',
-    name: 'Claude 2',
-    description: 'Most capable model for complex tasks',
-    maxTokens: 100000
-  },
-  claudeInstant: {
-    id: 'claude-instant-1',
-    name: 'Claude Instant',
-    description: 'Faster and more cost-effective for simpler tasks',
-    maxTokens: 100000
-  }
-} as const;
+export interface Model {
+  id: string;
+  label: string;
+  apiIdentifier: string;
+  description: string;
+}
 
-export type ModelId = keyof typeof models;
+export const models: Array<Model> = [
+  {
+    id: 'claude-3-opus',
+    label: 'Claude 3 Opus',
+    apiIdentifier: 'claude-3-opus-20240229',
+    description: 'Most capable model for highly complex tasks',
+  },
+  {
+    id: 'claude-3-sonnet',
+    label: 'Claude 3 Sonnet', 
+    apiIdentifier: 'claude-3-sonnet-20240229',
+    description: 'Ideal balance of intelligence and speed',
+  },
+  {
+    id: 'claude-3-haiku',
+    label: 'Claude 3 Haiku',
+    apiIdentifier: 'claude-3-haiku-20240229', 
+    description: 'Fastest model for simple tasks',
+  }
+] as const;
+
+export const DEFAULT_MODEL_NAME = 'claude-3-sonnet';

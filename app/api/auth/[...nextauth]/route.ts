@@ -1,5 +1,12 @@
-import NextAuth from 'next-auth';
-import { authConfig } from '@/app/(auth)/auth.config';
+import { NextResponse } from 'next/server';
+import { auth } from '@/app/(auth)/auth';
 
-const handler = NextAuth(authConfig);
-export { handler as GET, handler as POST };
+export async function GET(request: Request) {
+  const response = await auth(request);
+  return NextResponse.json(response);
+}
+
+export async function POST(request: Request) {
+  const response = await auth(request);
+  return NextResponse.json(response);
+}

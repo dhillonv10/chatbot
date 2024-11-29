@@ -10,7 +10,7 @@ export interface Model {
 export const models: Array<Model> = [
   {
     id: 'claude-3-sonnet',
-    label: 'Claude 3 Sonnet',
+    label: 'Claude 3.5 Sonnet',
     apiIdentifier: 'claude-3-5-sonnet-20241022',
     description: 'Latest Claude model for advanced reasoning and conversation',
   }

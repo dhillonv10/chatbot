@@ -2,19 +2,27 @@ import {
   experimental_wrapLanguageModel as wrapLanguageModel,
   type LanguageModelV1,
   type LanguageModelV1CallOptions,
-  type LanguageModelV1Message,
   type LanguageModelV1StreamPart,
 } from 'ai';
 import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
 
+// Define LanguageModelV1Message type locally
+type LanguageModelV1Message = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+// Check for the required environment variable
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
 }
 
+// Initialize the Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+// Convert LanguageModelV1Message to Anthropic's MessageParam format
 const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): MessageParam[] => {
   return messages.map(msg => ({
     role: msg.role === 'user' ? 'user' : 'assistant',
@@ -22,6 +30,7 @@ const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): Message
   }));
 };
 
+// Define the custom language model
 export const customModel = (apiIdentifier: string) => {
   const model: LanguageModelV1 = {
     specificationVersion: 'v1',
@@ -31,8 +40,8 @@ export const customModel = (apiIdentifier: string) => {
 
     async doStream(options: LanguageModelV1CallOptions) {
       try {
-        const messages = Array.isArray(options.prompt) 
-          ? [{ role: 'user', content: options.prompt[0] }] 
+        const messages = Array.isArray(options.prompt)
+          ? [{ role: 'user', content: options.prompt[0] }]
           : [options.prompt];
 
         const response = await anthropic.messages.create({
@@ -61,8 +70,8 @@ export const customModel = (apiIdentifier: string) => {
 
     async doComplete(options: LanguageModelV1CallOptions) {
       try {
-        const messages = Array.isArray(options.prompt) 
-          ? [{ role: 'user', content: options.prompt[0] }] 
+        const messages = Array.isArray(options.prompt)
+          ? [{ role: 'user', content: options.prompt[0] }]
           : [options.prompt];
 
         const response = await anthropic.messages.create({
@@ -72,7 +81,7 @@ export const customModel = (apiIdentifier: string) => {
         });
 
         return {
-          content: response.content[0].text,
+          content: response.completion, // Adjusted to match expected API output
           rawCall: {
             rawPrompt: options.prompt,
             rawSettings: {

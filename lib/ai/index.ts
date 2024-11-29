@@ -15,7 +15,20 @@ export const customModel = (apiIdentifier: string) => {
         const messages = options.prompt.map((message, index) => ({
           id: `${index}-${Date.now()}`, // Generate a unique id for each message
           role: message.role,
-          content: message.content,
+          content: typeof message.content === 'string'
+            ? message.content
+            : Array.isArray(message.content)
+            ? message.content.map(part => {
+                // Safely map parts to strings
+                if (typeof part === 'string') {
+                  return part;
+                }
+                if ('text' in part) {
+                  return part.text;
+                }
+                return '[Non-text content]';
+              }).join(' ') // Join all parts into a single string
+            : '[Unsupported content]', // Handle unsupported cases
         }));
 
         const response = await claudeStream(messages, apiIdentifier);
@@ -36,7 +49,20 @@ export const customModel = (apiIdentifier: string) => {
         const messages = options.prompt.map((message, index) => ({
           id: `${index}-${Date.now()}`, // Generate a unique id for each message
           role: message.role,
-          content: message.content,
+          content: typeof message.content === 'string'
+            ? message.content
+            : Array.isArray(message.content)
+            ? message.content.map(part => {
+                // Safely map parts to strings
+                if (typeof part === 'string') {
+                  return part;
+                }
+                if ('text' in part) {
+                  return part.text;
+                }
+                return '[Non-text content]';
+              }).join(' ') // Join all parts into a single string
+            : '[Unsupported content]', // Handle unsupported cases
         }));
 
         const response = await claudeCompletion(messages, apiIdentifier);

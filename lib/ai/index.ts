@@ -14,7 +14,7 @@ export const customModel = (apiIdentifier: string) => {
         // Transform LanguageModelV1Prompt to Message[]
         const messages = options.prompt.map((message, index) => ({
           id: `${index}-${Date.now()}`, // Generate a unique id for each message
-          role: message.role,
+          role: message.role === 'tool' ? 'assistant' : message.role, // Map 'tool' role to 'assistant'
           content: typeof message.content === 'string'
             ? message.content
             : Array.isArray(message.content)
@@ -48,7 +48,7 @@ export const customModel = (apiIdentifier: string) => {
         // Transform LanguageModelV1Prompt to Message[]
         const messages = options.prompt.map((message, index) => ({
           id: `${index}-${Date.now()}`, // Generate a unique id for each message
-          role: message.role,
+          role: message.role === 'tool' ? 'assistant' : message.role, // Map 'tool' role to 'assistant'
           content: typeof message.content === 'string'
             ? message.content
             : Array.isArray(message.content)

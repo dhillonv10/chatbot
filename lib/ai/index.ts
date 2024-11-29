@@ -8,13 +8,13 @@ import { Anthropic } from '@anthropic-ai/sdk';
 
 // Define the MessageParam type locally
 type MessageParam = {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant'; // Explicitly restrict role type
   content: string;
 };
 
 // Define LanguageModelV1Message type locally
 type LanguageModelV1Message = {
-  role: 'user' | 'assistant';
+  role: 'user' | 'assistant'; // Ensure type compatibility
   content: string;
 };
 
@@ -31,7 +31,7 @@ const anthropic = new Anthropic({
 // Convert LanguageModelV1Message to Anthropic's MessageParam format
 const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): MessageParam[] => {
   return messages.map(msg => ({
-    role: msg.role,
+    role: msg.role as 'user' | 'assistant', // Explicitly assert the type
     content: msg.content,
   }));
 };
@@ -46,9 +46,9 @@ export const customModel = (apiIdentifier: string) => {
 
     async doStream(options: LanguageModelV1CallOptions) {
       try {
-        const messages = Array.isArray(options.prompt)
+        const messages: LanguageModelV1Message[] = Array.isArray(options.prompt)
           ? [{ role: 'user', content: options.prompt[0] }]
-          : [options.prompt];
+          : [options.prompt as LanguageModelV1Message];
 
         const response = await anthropic.messages.create({
           model: apiIdentifier,
@@ -76,9 +76,9 @@ export const customModel = (apiIdentifier: string) => {
 
     async doComplete(options: LanguageModelV1CallOptions) {
       try {
-        const messages = Array.isArray(options.prompt)
+        const messages: LanguageModelV1Message[] = Array.isArray(options.prompt)
           ? [{ role: 'user', content: options.prompt[0] }]
-          : [options.prompt];
+          : [options.prompt as LanguageModelV1Message];
 
         const response = await anthropic.messages.create({
           model: apiIdentifier,

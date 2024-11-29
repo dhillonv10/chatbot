@@ -2,9 +2,10 @@ import {
   experimental_wrapLanguageModel as wrapLanguageModel,
   type LanguageModelV1,
   type LanguageModelV1CallOptions,
+  type LanguageModelV1Message,
   type LanguageModelV1StreamPart,
 } from 'ai';
-import { Anthropic } from '@anthropic-ai/sdk';
+import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -14,20 +15,10 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Helper function to convert prompts to messages
-const promptToMessages = (prompt: string[]) => {
-  // If it's a single message, send it as user message
-  if (prompt.length === 1) {
-    return [{
-      role: 'user',
-      content: prompt[0],
-    }];
-  }
-
-  // For multiple messages, alternate between user and assistant
-  return prompt.map((content, index) => ({
-    role: index % 2 === 0 ? 'user' : 'assistant',
-    content,
+const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): MessageParam[] => {
+  return messages.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'assistant',
+    content: msg.content,
   }));
 };
 
@@ -39,12 +30,14 @@ export const customModel = (apiIdentifier: string) => {
     defaultObjectGenerationMode: 'json',
 
     async doStream(options: LanguageModelV1CallOptions) {
-      const messages = promptToMessages(options.prompt);
-      
       try {
+        const messages = Array.isArray(options.prompt) 
+          ? [{ role: 'user', content: options.prompt[0] }] 
+          : [options.prompt];
+
         const response = await anthropic.messages.create({
           model: apiIdentifier,
-          messages,
+          messages: convertToAnthropicMessages(messages),
           stream: true,
           max_tokens: 1024,
         });
@@ -67,25 +60,31 @@ export const customModel = (apiIdentifier: string) => {
     },
 
     async doComplete(options: LanguageModelV1CallOptions) {
-      const response = await anthropic.messages.create({
-        model: apiIdentifier,
-        messages: [{
-          role: 'user',
-          content: options.prompt[0],
-        }],
-        max_tokens: 1024,
-      });
+      try {
+        const messages = Array.isArray(options.prompt) 
+          ? [{ role: 'user', content: options.prompt[0] }] 
+          : [options.prompt];
 
-      return {
-        content: response.content[0].text,
-        rawCall: {
-          rawPrompt: options.prompt,
-          rawSettings: {
-            model: apiIdentifier,
-            max_tokens: 1024,
+        const response = await anthropic.messages.create({
+          model: apiIdentifier,
+          messages: convertToAnthropicMessages(messages),
+          max_tokens: 1024,
+        });
+
+        return {
+          content: response.content[0].text,
+          rawCall: {
+            rawPrompt: options.prompt,
+            rawSettings: {
+              model: apiIdentifier,
+              max_tokens: 1024,
+            },
           },
-        },
-      };
+        };
+      } catch (error) {
+        console.error('Anthropic API Error:', error);
+        throw error;
+      }
     },
 
     async doGenerate(options: LanguageModelV1CallOptions) {

@@ -1,7 +1,8 @@
 import {
   experimental_wrapLanguageModel as wrapLanguageModel,
   type LanguageModelV1CallOptions,
-  type LanguageModelV1StreamPart
+  type LanguageModelV1StreamPart,
+  type LanguageModelV1Prompt
 } from 'ai';
 import { claudeStream, claudeCompletion } from './claude';
 import { customMiddleware } from './custom-middleware';
@@ -10,8 +11,14 @@ export const customModel = (apiIdentifier: string) => {
   return wrapLanguageModel({
     model: {
       doStream: async (options: LanguageModelV1CallOptions) => {
-        // Adjusted to use options.prompt instead of options.messages
-        const response = await claudeStream(options.prompt, apiIdentifier);
+        // Transform LanguageModelV1Prompt to Message[]
+        const messages = options.prompt.map((message, index) => ({
+          id: `${index}-${Date.now()}`, // Generate a unique id for each message
+          role: message.role,
+          content: message.content,
+        }));
+
+        const response = await claudeStream(messages, apiIdentifier);
         return {
           stream: response as unknown as ReadableStream<LanguageModelV1StreamPart>,
           rawCall: {
@@ -25,8 +32,14 @@ export const customModel = (apiIdentifier: string) => {
         };
       },
       doCompletion: async (options: LanguageModelV1CallOptions) => {
-        // Adjusted to use options.prompt instead of options.messages
-        const response = await claudeCompletion(options.prompt, apiIdentifier);
+        // Transform LanguageModelV1Prompt to Message[]
+        const messages = options.prompt.map((message, index) => ({
+          id: `${index}-${Date.now()}`, // Generate a unique id for each message
+          role: message.role,
+          content: message.content,
+        }));
+
+        const response = await claudeCompletion(messages, apiIdentifier);
         return {
           content: response,
           rawCall: {

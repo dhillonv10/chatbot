@@ -67,29 +67,25 @@ export const customModel = (apiIdentifier: string) => {
     },
 
     async doComplete(options: LanguageModelV1CallOptions) {
-      const messages = promptToMessages(options.prompt);
-      
-      try {
-        const response = await anthropic.messages.create({
-          model: apiIdentifier,
-          messages,
-          max_tokens: 1024,
-        });
+      const response = await anthropic.messages.create({
+        model: apiIdentifier,
+        messages: [{
+          role: 'user',
+          content: options.prompt[0],
+        }],
+        max_tokens: 1024,
+      });
 
-        return {
-          content: response.content[0].text,
-          rawCall: {
-            rawPrompt: options.prompt,
-            rawSettings: {
-              model: apiIdentifier,
-              max_tokens: 1024,
-            },
+      return {
+        content: response.content[0].text,
+        rawCall: {
+          rawPrompt: options.prompt,
+          rawSettings: {
+            model: apiIdentifier,
+            max_tokens: 1024,
           },
-        };
-      } catch (error) {
-        console.error('Anthropic API Error:', error);
-        throw error;
-      }
+        },
+      };
     },
 
     async doGenerate(options: LanguageModelV1CallOptions) {

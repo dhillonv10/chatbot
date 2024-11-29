@@ -1,4 +1,8 @@
-import { experimental_wrapLanguageModel as wrapLanguageModel, type LanguageModelV1CallOptions, type LanguageModelV1StreamPart } from 'ai';
+import {
+  experimental_wrapLanguageModel as wrapLanguageModel,
+  type LanguageModelV1CallOptions,
+  type LanguageModelV1StreamPart
+} from 'ai';
 import { claudeStream, claudeCompletion } from './claude';
 import { customMiddleware } from './custom-middleware';
 
@@ -6,11 +10,12 @@ export const customModel = (apiIdentifier: string) => {
   return wrapLanguageModel({
     model: {
       doStream: async (options: LanguageModelV1CallOptions) => {
-        const response = await claudeStream(options.messages, apiIdentifier);
+        // Adjusted to use options.prompt instead of options.messages
+        const response = await claudeStream(options.prompt, apiIdentifier);
         return {
           stream: response as unknown as ReadableStream<LanguageModelV1StreamPart>,
           rawCall: {
-            rawPrompt: options.messages,
+            rawPrompt: options.prompt,
             rawSettings: {
               model: apiIdentifier,
               max_tokens: 4096,
@@ -20,11 +25,12 @@ export const customModel = (apiIdentifier: string) => {
         };
       },
       doCompletion: async (options: LanguageModelV1CallOptions) => {
-        const response = await claudeCompletion(options.messages, apiIdentifier);
+        // Adjusted to use options.prompt instead of options.messages
+        const response = await claudeCompletion(options.prompt, apiIdentifier);
         return {
           content: response,
           rawCall: {
-            rawPrompt: options.messages,
+            rawPrompt: options.prompt,
             rawSettings: {
               model: apiIdentifier,
               max_tokens: 4096

@@ -4,7 +4,13 @@ import {
   type LanguageModelV1CallOptions,
   type LanguageModelV1StreamPart,
 } from 'ai';
-import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
+import { Anthropic } from '@anthropic-ai/sdk';
+
+// Define the MessageParam type locally
+type MessageParam = {
+  role: 'user' | 'assistant';
+  content: string;
+};
 
 // Define LanguageModelV1Message type locally
 type LanguageModelV1Message = {
@@ -25,7 +31,7 @@ const anthropic = new Anthropic({
 // Convert LanguageModelV1Message to Anthropic's MessageParam format
 const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): MessageParam[] => {
   return messages.map(msg => ({
-    role: msg.role === 'user' ? 'user' : 'assistant',
+    role: msg.role,
     content: msg.content,
   }));
 };

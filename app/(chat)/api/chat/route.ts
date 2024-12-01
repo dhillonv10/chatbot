@@ -1,7 +1,5 @@
 import {
   type Message,
-  type ChatRequest,
-  type ChatResponse,
   convertToCoreMessages,
 } from 'ai';
 import { z } from 'zod';

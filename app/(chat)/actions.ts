@@ -23,7 +23,7 @@ export async function generateTitleFromUserMessage({
   message: CoreUserMessage;
 }) {
   const response = await anthropic.messages.create({
-    model: 'claude-3-sonnet-20240229',
+    model: 'claude-3-5-sonnet-20241022',
     system: `
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long

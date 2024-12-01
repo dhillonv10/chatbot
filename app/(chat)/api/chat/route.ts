@@ -63,13 +63,20 @@ export async function POST(request: Request) {
     ],
   });
 
+  // Convert CoreMessages to Messages by adding id
+  const messagesWithId = coreMessages.map(msg => ({
+    ...msg,
+    id: generateUUID()
+  }));
+
   const stream = await customModel(model.apiIdentifier).invoke({
-    messages: coreMessages,
+    messages: messagesWithId,
     options: {
       system: systemPrompt
     }
   });
 
+  // Set up SSE response with proper headers
   return new Response(stream, {
     headers: {
       'Content-Type': 'text/event-stream',

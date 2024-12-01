@@ -44,16 +44,12 @@ export function useBlockStream({
     const message = mostRecentDelta as { role: string; content: string };
     if (message.role === 'assistant') {
       console.log('Updating block with assistant message:', message.content);
-      setBlock((draftBlock) => {
-        const newBlock = {
-          ...draftBlock,
-          content: message.content,
-          status: 'streaming',
-          isVisible: true
-        };
-        console.log('New block state:', newBlock);
-        return newBlock;
-      });
+      setBlock((draftBlock) => ({
+        ...draftBlock,
+        content: message.content,
+        status: 'streaming' as const,
+        isVisible: true
+      }));
     } else {
       console.log('Skipping non-assistant message:', message);
     }

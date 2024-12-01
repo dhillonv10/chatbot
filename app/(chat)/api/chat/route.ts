@@ -63,14 +63,9 @@ export async function POST(request: Request) {
     ],
   });
 
-  // Convert CoreMessages to Messages by adding id
-  const messagesWithId = coreMessages.map(msg => ({
-    ...msg,
-    id: generateUUID()
-  }));
-
+  // We can pass the original messages directly since customModel handles the conversion
   const stream = await customModel(model.apiIdentifier).invoke({
-    messages: messagesWithId,
+    messages,
     options: {
       system: systemPrompt
     }

@@ -9,15 +9,21 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY || '' // Handle empty string case for Vercel env
 });
 
+interface SimplifiedMessage {
+  role: 'user' | 'assistant';
+  content: string;
+  id?: string;
+}
+
 export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
-      // Format messages with explicit type literals
+      // Convert complex messages to simplified format
       const formattedMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-        content: msg.content
+        content: typeof msg.content === 'string' ? msg.content : msg.content[0].type === 'text' ? msg.content[0].text : ''
       }));
 
       console.log('Starting API call with messages:', messages);

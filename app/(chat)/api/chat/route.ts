@@ -63,10 +63,11 @@ export async function POST(request: Request) {
     ],
   });
 
-  const stream = await customModel.invoke({
+  const stream = await customModel(model.apiIdentifier).invoke({
     messages: coreMessages,
-    system: systemPrompt,
-    apiIdentifier: model.apiIdentifier,
+    options: {
+      system: systemPrompt
+    }
   });
 
   return new Response(stream, {

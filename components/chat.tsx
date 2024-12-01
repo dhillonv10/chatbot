@@ -3,7 +3,7 @@
 import type { Attachment, Message } from 'ai';
 import { useChat } from 'ai/react';
 import { AnimatePresence } from 'framer-motion';
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useWindowSize } from 'usehooks-ts';
 
@@ -42,10 +42,21 @@ export function Chat({
   } = useChat({
     body: { id, modelId: selectedModelId },
     initialMessages,
-    onFinish: () => {
+    onResponse: (response) => {
+      console.log('Chat response received:', response);
+    },
+    onFinish: (message) => {
+      console.log('Chat finished:', message);
       mutate('/api/history');
     },
+    onError: (error) => {
+      console.error('Chat error:', error);
+    }
   });
+
+  useEffect(() => {
+    console.log('Messages updated:', messages);
+  }, [messages]);
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =
     useWindowSize();

@@ -29,24 +29,26 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      console.log('Got response from Anthropic');
+      console.log('Got response from Anthropic, creating stream');
       
       // Convert to a ReadableStream
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
-          const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
-          controller.enqueue(queue);
-          
+          console.log('Stream start called');
           try {
             let content = '';
             for await (const chunk of response) {
+              console.log('Processing chunk:', chunk);
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
-                const encoded = encoder.encode(chunk.delta.text);
-                controller.enqueue(encoded);
+                console.log('Accumulated content:', content);
+                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
+                controller.enqueue(queue);
+                controller.enqueue(encoder.encode(chunk.delta.text));
               }
             }
+            console.log('Stream complete, final content:', content);
             controller.enqueue(encoder.encode('"}'));
             controller.close();
           } catch (error) {

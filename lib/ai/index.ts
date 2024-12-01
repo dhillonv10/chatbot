@@ -1,5 +1,5 @@
 import { type Message } from 'ai';
-import { Anthropic } from '@anthropic-ai/sdk';
+import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -14,8 +14,8 @@ export const customModel = (apiIdentifier: string) => {
     id: apiIdentifier,
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
-      // Format messages like in the Python example
-      const formattedMessages = messages.map(msg => ({
+      // Format messages with proper typing
+      const formattedMessages: MessageParam[] = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' : 'assistant',
         content: msg.content
       }));

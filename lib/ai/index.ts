@@ -23,7 +23,11 @@ export const customModel = (apiIdentifier: string) => {
       // Convert complex messages to simplified format
       const formattedMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-        content: typeof msg.content === 'string' ? msg.content : msg.content[0].type === 'text' ? msg.content[0].text : ''
+        content: typeof msg.content === 'string' 
+          ? msg.content 
+          : Array.isArray(msg.content) && msg.content.length > 0 && 'text' in msg.content[0]
+            ? msg.content[0].text as string
+            : ''
       }));
 
       console.log('Starting API call with messages:', messages);

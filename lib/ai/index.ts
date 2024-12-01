@@ -28,7 +28,19 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      return response;
+      // Convert Anthropic's Stream to a proper ReadableStream
+      const stream = new ReadableStream({
+        async start(controller) {
+          for await (const chunk of response) {
+            if (chunk.type === 'content_block' && chunk.content[0].text) {
+              controller.enqueue(chunk.content[0].text);
+            }
+          }
+          controller.close();
+        }
+      });
+
+      return stream;
     }
   };
 };

@@ -33,9 +33,8 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           try {
             for await (const chunk of response) {
-              // Handle the streaming response from Claude
-              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                controller.enqueue(chunk.delta.text);
+              if (chunk.text) {
+                controller.enqueue(chunk.text);
               }
             }
             controller.close();

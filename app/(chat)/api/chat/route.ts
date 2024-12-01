@@ -63,21 +63,18 @@ export async function POST(request: Request) {
     ],
   });
 
-  // We can pass the original messages directly since customModel handles the conversion
-  const stream = await customModel(model.apiIdentifier).invoke({
+  const response = await customModel(model.apiIdentifier).invoke({
     messages,
-    options: {
-      system: systemPrompt
-    }
+    options: { system: systemPrompt }
   });
 
-  // Set up SSE response with proper headers
-  return new Response(stream, {
+  return new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-    }
+      'Transfer-Encoding': 'chunked'
+    },
   });
 }
 

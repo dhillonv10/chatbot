@@ -43,17 +43,10 @@ export function Chat({
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
-      if (!response.ok) {
-        console.error('Response error:', response.status, response.statusText);
-        return;
-      }
-      console.log('Chat response received:', {
-        status: response.status,
-        statusText: response.statusText,
-      });
+      console.log('Chat response received:', response);
     },
     onFinish: (message) => {
-      console.log('Message finished:', message);
+      console.log('Chat finished:', message);
       mutate('/api/history');
     },
     onError: (error) => {
@@ -62,14 +55,8 @@ export function Chat({
   });
 
   useEffect(() => {
-    console.log('Current messages:', messages);
+    console.log('Messages updated:', messages);
   }, [messages]);
-
-  useEffect(() => {
-    if (streamingData) {
-      console.log('New streaming data:', streamingData);
-    }
-  }, [streamingData]);
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =
     useWindowSize();
@@ -108,19 +95,21 @@ export function Chat({
         >
           {messages.length === 0 && <Overview />}
 
-          <AnimatePresence>
-            {messages.map((message, index) => (
-              <PreviewMessage
-                key={message.id}
-                chatId={id}
-                message={message}
-                block={block}
-                setBlock={setBlock}
-                isLoading={isLoading && messages.length - 1 === index}
-                vote={votes?.find((vote) => vote.messageId === message.id)}
-              />
-            ))}
-          </AnimatePresence>
+          {messages.map((message, index) => (
+            <PreviewMessage
+              key={message.id}
+              chatId={id}
+              message={message}
+              block={block}
+              setBlock={setBlock}
+              isLoading={isLoading && messages.length - 1 === index}
+              vote={
+                votes
+                  ? votes.find((vote) => vote.messageId === message.id)
+                  : undefined
+              }
+            />
+          ))}
 
           {isLoading &&
             messages.length > 0 &&

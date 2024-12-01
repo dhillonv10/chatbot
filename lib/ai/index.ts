@@ -9,6 +9,18 @@ const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
+type AnthropicMessage = {
+  role: 'user' | 'assistant';
+  content: string;
+};
+
+const convertToAnthropicMessages = (messages: Message[]): AnthropicMessage[] => {
+  return messages.map(msg => ({
+    role: msg.role === 'user' ? 'user' : 'assistant',
+    content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
+  }));
+};
+
 export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
@@ -16,10 +28,7 @@ export const customModel = (apiIdentifier: string) => {
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
       const response = await anthropic.messages.create({
         model: apiIdentifier,
-        messages: messages.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
-          content: msg.content,
-        })),
+        messages: convertToAnthropicMessages(messages),
         stream: true,
         max_tokens: 4096,
         system: options?.system,

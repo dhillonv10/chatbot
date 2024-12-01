@@ -64,10 +64,7 @@ export async function POST(request: Request) {
   });
 
   const response = await customModel(model.apiIdentifier).invoke({
-    messages: coreMessages.map((msg) => ({
-      role: msg.role,
-      content: typeof msg.content === 'string' ? msg.content : JSON.stringify(msg.content),
-    })),
+    messages,
     options: { system: systemPrompt }
   });
 

@@ -25,14 +25,19 @@ export const customModel = (apiIdentifier: string) => {
         system: options?.system,
       });
 
+      // Create a ReadableStream that will emit the text chunks
       const stream = new ReadableStream({
         async start(controller) {
-          for await (const chunk of response) {
-            if (chunk.type === 'content_block_delta') {
-              controller.enqueue(chunk.delta.text);
+          try {
+            for await (const chunk of response) {
+              if (chunk.type === 'content_block_delta') {
+                controller.enqueue(chunk.delta.text);
+              }
             }
+            controller.close();
+          } catch (error) {
+            controller.error(error);
           }
-          controller.close();
         },
       });
 

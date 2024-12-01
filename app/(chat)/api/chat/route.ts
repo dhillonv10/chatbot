@@ -1,6 +1,7 @@
 import {
   type Message,
-  StreamingTextResponse,
+  type ChatRequest,
+  type ChatResponse,
   convertToCoreMessages,
 } from 'ai';
 import { z } from 'zod';
@@ -72,7 +73,23 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  return new StreamingTextResponse(response);
+  // Create a TransformStream to convert the response chunks to the format expected by the client
+  const transformStream = new TransformStream({
+    transform(chunk, controller) {
+      controller.enqueue(new TextEncoder().encode(chunk));
+    },
+  });
+
+  // Pipe the response through the transform stream
+  response.pipeTo(transformStream.writable);
+
+  return new Response(transformStream.readable, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
 export async function DELETE(request: Request) {

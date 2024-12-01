@@ -31,22 +31,23 @@ export const customModel = (apiIdentifier: string) => {
 
       console.log('Got response from Anthropic');
       
+      // Convert to a ReadableStream
+      const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
+          const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
+          controller.enqueue(queue);
+          
           try {
+            let content = '';
             for await (const chunk of response) {
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                // Format as per vercel-ai's requirements
-                const payload = {
-                  id: Date.now().toString(),
-                  role: 'assistant',
-                  content: chunk.delta.text
-                };
-                controller.enqueue(`data: ${JSON.stringify(payload)}\n\n`);
+                content += chunk.delta.text;
+                const encoded = encoder.encode(chunk.delta.text);
+                controller.enqueue(encoded);
               }
             }
-            // Send the final "done" message
-            controller.enqueue('data: [DONE]\n\n');
+            controller.enqueue(encoder.encode('"}'));
             controller.close();
           } catch (error) {
             console.error('Stream error:', error);

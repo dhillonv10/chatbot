@@ -20,6 +20,7 @@ export const customModel = (apiIdentifier: string) => {
         content: msg.content
       }));
 
+      console.log('Starting API call with messages:', messages);
       const response = await anthropic.messages.create({
         model: apiIdentifier,
         messages: formattedMessages,
@@ -28,18 +29,22 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      // Convert Anthropic's Stream to a ReadableStream
+      console.log('Got response from Anthropic');
+      
       const stream = new ReadableStream({
         async start(controller) {
-          for await (const chunk of response) {
-            console.log('Received chunk:', chunk); // Debug log
-            if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-              // Format as SSE data
-              const data = JSON.stringify({ text: chunk.delta.text });
-              controller.enqueue(`data: ${data}\n\n`);
+          try {
+            console.log('Starting stream');
+            for await (const chunk of response) {
+              console.log('Raw chunk:', chunk);
+              controller.enqueue('data: {"text":"test"}\n\n');
             }
+            console.log('Stream finished');
+            controller.close();
+          } catch (error) {
+            console.error('Stream error:', error);
+            controller.error(error);
           }
-          controller.close();
         }
       });
 

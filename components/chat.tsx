@@ -43,10 +43,18 @@ export function Chat({
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
-      console.log('Chat response received:', response);
+      console.log('Chat response received:', {
+        status: response.status,
+        statusText: response.statusText,
+        headers: Object.fromEntries(response.headers.entries())
+      });
     },
     onFinish: (message) => {
-      console.log('Chat finished:', message);
+      console.log('Chat finished with message:', {
+        role: message.role,
+        contentLength: message.content.length,
+        id: message.id
+      });
       mutate('/api/history');
     },
     onError: (error) => {
@@ -55,8 +63,18 @@ export function Chat({
   });
 
   useEffect(() => {
-    console.log('Messages updated:', messages);
+    console.log('Messages updated:', messages.map(m => ({
+      role: m.role,
+      contentLength: m.content.length,
+      id: m.id
+    })));
   }, [messages]);
+
+  useEffect(() => {
+    if (streamingData) {
+      console.log('New streaming data received:', streamingData);
+    }
+  }, [streamingData]);
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =
     useWindowSize();

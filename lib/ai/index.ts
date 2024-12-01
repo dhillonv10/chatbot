@@ -37,19 +37,30 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           console.log('Stream start called');
           try {
-            let content = '';
+            let fullContent = '';
+            
+            // Send the start of the message
+            controller.enqueue(encoder.encode('data: '));
+            
             for await (const chunk of response) {
               console.log('Processing chunk:', chunk);
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                content += chunk.delta.text;
-                console.log('Accumulated content:', content);
-                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
-                controller.enqueue(queue);
-                controller.enqueue(encoder.encode(chunk.delta.text));
+                fullContent += chunk.delta.text;
+                console.log('Accumulated content:', fullContent);
+                
+                // Format each chunk as a complete message
+                const message = {
+                  id: 'message_1',
+                  role: 'assistant',
+                  content: fullContent
+                };
+                
+                controller.enqueue(encoder.encode(JSON.stringify(message) + '\n\n'));
               }
             }
-            console.log('Stream complete, final content:', content);
-            controller.enqueue(encoder.encode('"}'));
+            
+            console.log('Stream complete, final content:', fullContent);
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
             controller.close();
           } catch (error) {
             console.error('Stream error:', error);

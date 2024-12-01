@@ -32,64 +32,30 @@ export function useBlockStream({
   }, [optimisticSuggestions, mutate]);
 
   useEffect(() => {
+    console.log('Block stream received new data:', streamingData);
     const mostRecentDelta = streamingData?.at(-1);
-    if (!mostRecentDelta) return;
+    if (!mostRecentDelta) {
+      console.log('No recent delta found');
+      return;
+    }
 
-    const delta = mostRecentDelta as StreamingDelta;
-
-    setBlock((draftBlock) => {
-      switch (delta.type) {
-        case 'id':
-          return {
-            ...draftBlock,
-            documentId: delta.content as string,
-          };
-
-        case 'title':
-          return {
-            ...draftBlock,
-            title: delta.content as string,
-          };
-
-        case 'text-delta':
-          return {
-            ...draftBlock,
-            content: draftBlock.content + (delta.content as string),
-            isVisible:
-              draftBlock.status === 'streaming' &&
-              draftBlock.content.length > 200 &&
-              draftBlock.content.length < 250
-                ? true
-                : draftBlock.isVisible,
-            status: 'streaming',
-          };
-
-        case 'suggestion':
-          setTimeout(() => {
-            setOptimisticSuggestions((currentSuggestions) => [
-              ...currentSuggestions,
-              delta.content as Suggestion,
-            ]);
-          }, 0);
-
-          return draftBlock;
-
-        case 'clear':
-          return {
-            ...draftBlock,
-            content: '',
-            status: 'streaming',
-          };
-
-        case 'finish':
-          return {
-            ...draftBlock,
-            status: 'idle',
-          };
-
-        default:
-          return draftBlock;
-      }
-    });
+    console.log('Processing delta:', mostRecentDelta);
+    // Handle our SSE format
+    const message = mostRecentDelta as { role: string; content: string };
+    if (message.role === 'assistant') {
+      console.log('Updating block with assistant message:', message.content);
+      setBlock((draftBlock) => {
+        const newBlock = {
+          ...draftBlock,
+          content: message.content,
+          status: 'streaming',
+          isVisible: true
+        };
+        console.log('New block state:', newBlock);
+        return newBlock;
+      });
+    } else {
+      console.log('Skipping non-assistant message:', message);
+    }
   }, [streamingData, setBlock]);
 }

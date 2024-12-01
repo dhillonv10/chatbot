@@ -68,17 +68,7 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  // Create a TransformStream to convert the response chunks to the format expected by the client
-  const transformStream = new TransformStream({
-    transform(chunk, controller) {
-      controller.enqueue(new TextEncoder().encode(chunk));
-    },
-  });
-
-  // Pipe the response through the transform stream
-  response.pipeTo(transformStream.writable);
-
-  return new Response(transformStream.readable, {
+  return new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',

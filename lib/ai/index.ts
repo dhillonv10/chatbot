@@ -28,24 +28,7 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      // Create a ReadableStream that properly handles the streaming response
-      const stream = new ReadableStream({
-        async start(controller) {
-          try {
-            for await (const chunk of response) {
-              if (chunk.text) {
-                controller.enqueue(chunk.text);
-              }
-            }
-            controller.close();
-          } catch (error) {
-            console.error('Streaming error:', error);
-            controller.error(error);
-          }
-        }
-      });
-
-      return stream;
+      return response;
     }
   };
 };

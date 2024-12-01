@@ -34,15 +34,19 @@ export const customModel = (apiIdentifier: string) => {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            console.log('Starting stream');
             for await (const chunk of response) {
-              console.log('Raw chunk:', chunk);
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                const data = `data: ${JSON.stringify({ content: chunk.delta.text })}\n\n`;
-                controller.enqueue(data);
+                // Format as per vercel-ai's requirements
+                const payload = {
+                  id: Date.now().toString(),
+                  role: 'assistant',
+                  content: chunk.delta.text
+                };
+                controller.enqueue(`data: ${JSON.stringify(payload)}\n\n`);
               }
             }
-            console.log('Stream finished');
+            // Send the final "done" message
+            controller.enqueue('data: [DONE]\n\n');
             controller.close();
           } catch (error) {
             console.error('Stream error:', error);

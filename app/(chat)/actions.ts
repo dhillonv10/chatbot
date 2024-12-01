@@ -1,9 +1,16 @@
 'use server';
 
-import { type CoreUserMessage, generateText } from 'ai';
+import { type CoreUserMessage } from 'ai';
+import { Anthropic } from '@anthropic-ai/sdk';
 import { cookies } from 'next/headers';
 
-import { customModel } from '@/lib/ai';
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
+}
+
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY,
+});
 
 export async function saveModelId(model: string) {
   const cookieStore = await cookies();
@@ -15,15 +22,16 @@ export async function generateTitleFromUserMessage({
 }: {
   message: CoreUserMessage;
 }) {
-  const { text: title } = await generateText({
-    model: customModel('claude-3-5-sonnet-20241022'),
-    system: `\n
+  const response = await anthropic.messages.create({
+    model: 'claude-3-sonnet-20240229',
+    system: `
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
     - the title should be a summary of the user's message
     - do not use quotes or colons`,
-    prompt: JSON.stringify(message),
+    messages: [{ role: 'user', content: JSON.stringify(message) }],
+    max_tokens: 100,
   });
 
-  return title;
+  return response.content[0].text;
 }

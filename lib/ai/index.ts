@@ -1,3 +1,4 @@
+import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -9,22 +10,33 @@ const anthropic = new Anthropic({
 });
 
 export const customModel = (apiIdentifier: string) => {
-  return async function* (messages: Array<{ role: string; content: string }>, options: { system?: string } = {}) {
-    const response = await anthropic.messages.create({
-      model: apiIdentifier,
-      messages: messages.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'assistant',
-        content: msg.content,
-      })),
-      stream: true,
-      max_tokens: 4096,
-      system: options.system,
-    });
+  return {
+    id: apiIdentifier,
+    provider: 'anthropic' as const,
+    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
+      const response = await anthropic.messages.create({
+        model: apiIdentifier,
+        messages: messages.map(msg => ({
+          role: msg.role === 'user' ? 'user' : 'assistant',
+          content: msg.content,
+        })),
+        stream: true,
+        max_tokens: 4096,
+        system: options?.system,
+      });
 
-    for await (const chunk of response) {
-      if (chunk.type === 'content_block_delta') {
-        yield chunk.delta.text;
-      }
-    }
+      const stream = new ReadableStream({
+        async start(controller) {
+          for await (const chunk of response) {
+            if (chunk.type === 'content_block_delta') {
+              controller.enqueue(chunk.delta.text);
+            }
+          }
+          controller.close();
+        },
+      });
+
+      return stream;
+    },
   };
 };

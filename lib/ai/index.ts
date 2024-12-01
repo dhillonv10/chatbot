@@ -2,41 +2,26 @@ import {
   experimental_wrapLanguageModel as wrapLanguageModel,
   type LanguageModelV1,
   type LanguageModelV1CallOptions,
+  type LanguageModelV1Message,
   type LanguageModelV1StreamPart,
 } from 'ai';
-import { Anthropic } from '@anthropic-ai/sdk';
+import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
 
-// Define the MessageParam type locally
-type MessageParam = {
-  role: 'user' | 'assistant'; // Explicitly restrict role type
-  content: string;
-};
-
-// Define LanguageModelV1Message type locally
-type LanguageModelV1Message = {
-  role: 'user' | 'assistant'; // Ensure type compatibility
-  content: string;
-};
-
-// Check for the required environment variable
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
 }
 
-// Initialize the Anthropic client
 const anthropic = new Anthropic({
   apiKey: process.env.ANTHROPIC_API_KEY,
 });
 
-// Convert LanguageModelV1Message to Anthropic's MessageParam format
 const convertToAnthropicMessages = (messages: LanguageModelV1Message[]): MessageParam[] => {
   return messages.map(msg => ({
-    role: msg.role as 'user' | 'assistant', // Explicitly assert the type
+    role: msg.role === 'user' ? 'user' : 'assistant',
     content: msg.content,
   }));
 };
 
-// Define the custom language model
 export const customModel = (apiIdentifier: string) => {
   const model: LanguageModelV1 = {
     specificationVersion: 'v1',
@@ -46,15 +31,17 @@ export const customModel = (apiIdentifier: string) => {
 
     async doStream(options: LanguageModelV1CallOptions) {
       try {
-        const messages: LanguageModelV1Message[] = Array.isArray(options.prompt)
-          ? [{ role: 'user', content: options.prompt[0] }]
-          : [options.prompt as LanguageModelV1Message];
+        const messages = Array.isArray(options.prompt) 
+          ? options.prompt.map(msg => typeof msg === 'string' ? { role: 'user', content: msg } : msg)
+          : [typeof options.prompt === 'string' ? { role: 'user', content: options.prompt } : options.prompt];
 
         const response = await anthropic.messages.create({
           model: apiIdentifier,
           messages: convertToAnthropicMessages(messages),
           stream: true,
-          max_tokens: 1024,
+          max_tokens: 4096,
+          temperature: options.temperature ?? 0.7,
+          system: options.system,
         });
 
         return {
@@ -63,42 +50,47 @@ export const customModel = (apiIdentifier: string) => {
             rawPrompt: options.prompt,
             rawSettings: {
               model: apiIdentifier,
-              max_tokens: 1024,
-              stream: true,
+              max_tokens: 4096,
+              temperature: options.temperature ?? 0.7,
+              system: options.system,
             },
           },
         };
       } catch (error) {
-        console.error('Anthropic API Error:', error);
-        throw error;
+        console.error('Error in Claude API call:', error);
+        throw new Error(error instanceof Error ? error.message : 'Unknown error occurred');
       }
     },
 
     async doComplete(options: LanguageModelV1CallOptions) {
       try {
-        const messages: LanguageModelV1Message[] = Array.isArray(options.prompt)
-          ? [{ role: 'user', content: options.prompt[0] }]
-          : [options.prompt as LanguageModelV1Message];
+        const messages = Array.isArray(options.prompt) 
+          ? options.prompt.map(msg => typeof msg === 'string' ? { role: 'user', content: msg } : msg)
+          : [typeof options.prompt === 'string' ? { role: 'user', content: options.prompt } : options.prompt];
 
         const response = await anthropic.messages.create({
           model: apiIdentifier,
           messages: convertToAnthropicMessages(messages),
-          max_tokens: 1024,
+          max_tokens: 4096,
+          temperature: options.temperature ?? 0.7,
+          system: options.system,
         });
 
         return {
-          content: response.completion, // Adjusted to match expected API output
+          content: response.content[0].text,
           rawCall: {
             rawPrompt: options.prompt,
             rawSettings: {
               model: apiIdentifier,
-              max_tokens: 1024,
+              max_tokens: 4096,
+              temperature: options.temperature ?? 0.7,
+              system: options.system,
             },
           },
         };
       } catch (error) {
-        console.error('Anthropic API Error:', error);
-        throw error;
+        console.error('Error in Claude API call:', error);
+        throw new Error(error instanceof Error ? error.message : 'Unknown error occurred');
       }
     },
 
@@ -107,15 +99,5 @@ export const customModel = (apiIdentifier: string) => {
     },
   };
 
-  return wrapLanguageModel({
-    model,
-    middleware: {
-      async chatCompletion(options) {
-        return options;
-      },
-      async completion(options) {
-        return options;
-      },
-    },
-  });
+  return wrapLanguageModel(model);
 };

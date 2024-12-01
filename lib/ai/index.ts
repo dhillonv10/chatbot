@@ -28,12 +28,15 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      // Convert Anthropic's Stream to a proper ReadableStream
+      // Convert Anthropic's Stream to a ReadableStream
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of response) {
+            console.log('Received chunk:', chunk); // Debug log
             if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-              controller.enqueue(chunk.delta.text);
+              // Format as SSE data
+              const data = JSON.stringify({ text: chunk.delta.text });
+              controller.enqueue(`data: ${data}\n\n`);
             }
           }
           controller.close();

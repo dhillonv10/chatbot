@@ -32,8 +32,8 @@ export const customModel = (apiIdentifier: string) => {
       const stream = new ReadableStream({
         async start(controller) {
           for await (const chunk of response) {
-            if (chunk.type === 'content_block' && chunk.content[0].text) {
-              controller.enqueue(chunk.content[0].text);
+            if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+              controller.enqueue(chunk.delta.text);
             }
           }
           controller.close();

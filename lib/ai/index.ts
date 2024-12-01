@@ -26,6 +26,8 @@ export const customModel = (apiIdentifier: string) => {
     id: apiIdentifier,
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
+      console.log('Invoking model with:', { apiIdentifier, messages: messages.length });
+      
       const response = await anthropic.messages.create({
         model: apiIdentifier,
         messages: convertToAnthropicMessages(messages),
@@ -39,12 +41,17 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           try {
             for await (const chunk of response) {
+              console.log('Received chunk:', chunk);
               if (chunk.type === 'content_block_delta') {
                 controller.enqueue(chunk.delta.text);
+              } else if (chunk.type === 'message_delta') {
+                // Handle potential different response format
+                controller.enqueue(chunk.delta.text || chunk.delta.content || '');
               }
             }
             controller.close();
           } catch (error) {
+            console.error('Streaming error:', error);
             controller.error(error);
           }
         },

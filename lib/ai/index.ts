@@ -37,7 +37,10 @@ export const customModel = (apiIdentifier: string) => {
             console.log('Starting stream');
             for await (const chunk of response) {
               console.log('Raw chunk:', chunk);
-              controller.enqueue('data: {"text":"test"}\n\n');
+              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+                const data = `data: ${JSON.stringify({ content: chunk.delta.text })}\n\n`;
+                controller.enqueue(data);
+              }
             }
             console.log('Stream finished');
             controller.close();

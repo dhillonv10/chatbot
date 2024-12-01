@@ -1,12 +1,12 @@
 import { type Message } from 'ai';
-import { Anthropic, MessageParam } from '@anthropic-ai/sdk';
+import { Anthropic } from '@anthropic-ai/sdk';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
 }
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY,
+  apiKey: process.env.ANTHROPIC_API_KEY || '' // Handle empty string case for Vercel env
 });
 
 export const customModel = (apiIdentifier: string) => {
@@ -14,9 +14,9 @@ export const customModel = (apiIdentifier: string) => {
     id: apiIdentifier,
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
-      // Format messages with proper typing
-      const formattedMessages: MessageParam[] = messages.map(msg => ({
-        role: msg.role === 'user' ? 'user' : 'assistant',
+      // Format messages with explicit type literals
+      const formattedMessages = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
         content: msg.content
       }));
 

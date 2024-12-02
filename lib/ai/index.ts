@@ -1,4 +1,4 @@
-import { type Message, type ReadableStream } from 'ai';
+import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { streamText } from 'ai';
 
@@ -7,37 +7,32 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '' // Handle empty string case for Vercel env
+  apiKey: process.env.ANTHROPIC_API_KEY || '', // Handle empty string case for Vercel env
 });
 
 export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<ReadableStream<Uint8Array>> {
-      // Format messages with explicit type literals
+    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<Response> {
+      // Format messages to match the expected structure
       const formattedMessages = messages.map(msg => ({
-        role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-        content: msg.content
+        role: msg.role === 'user' ? 'user' : 'assistant',
+        content: msg.content,
       }));
 
-      console.log('Starting API call with messages:', messages);
-      const response = await anthropic.messages.create({
-        model: apiIdentifier,
+      console.log('Starting API call with messages:', formattedMessages);
+
+      // Use streamText to handle the streamed response
+      const result = streamText({
+        model: apiIdentifier, // Use the provided model identifier, e.g., "claude-3.5"
+        maxTokens: 4096,
         messages: formattedMessages,
         system: options?.system,
-        max_tokens: 4096,
-        stream: true
       });
 
-      console.log('Got response from Anthropic, creating stream');
-      
-      // Use streamText helper from ai package
-      return streamText(response, {
-        onTextContent: (content) => {
-          console.log('Streaming text content:', { length: content.length });
-        },
-      });
-    }
+      // Return the response as a stream
+      return result.toTextStreamResponse();
+    },
   };
 };

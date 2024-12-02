@@ -49,30 +49,50 @@ export const customModel = (apiIdentifier: string) => {
                 const event = {
                   id: messageId,
                   role: 'assistant',
-                  content: '',
-                  createdAt: new Date()
+                  content: ''
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-                content += chunk.delta.text;
-                console.log('Accumulated content:', content);
-                // Send the full content with each delta
+                // Extract just the text content, removing any JSON commands
+                const text = chunk.delta.text;
+                content += text;
+                
+                // Create a clean version of content without JSON commands
+                let cleanContent = content;
+                const jsonStart = cleanContent.indexOf('{"action":');
+                if (jsonStart !== -1) {
+                  const jsonEnd = cleanContent.indexOf('}', jsonStart) + 1;
+                  if (jsonEnd !== 0) {
+                    cleanContent = cleanContent.substring(0, jsonStart).trim() + 
+                                 cleanContent.substring(jsonEnd).trim();
+                  }
+                }
+                
+                // Send the cleaned content
                 const event = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: content,
-                  createdAt: new Date()
+                  content: cleanContent.trim()
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               }
               else if (chunk.type === 'message_stop') {
-                // Send a final event to mark completion
+                // Clean up the final content
+                let cleanContent = content;
+                const jsonStart = cleanContent.indexOf('{"action":');
+                if (jsonStart !== -1) {
+                  const jsonEnd = cleanContent.indexOf('}', jsonStart) + 1;
+                  if (jsonEnd !== 0) {
+                    cleanContent = cleanContent.substring(0, jsonStart).trim() + 
+                                 cleanContent.substring(jsonEnd).trim();
+                  }
+                }
+                
                 const event = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: content,
-                  createdAt: new Date()
+                  content: cleanContent.trim()
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));

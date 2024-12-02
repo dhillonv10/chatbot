@@ -33,38 +33,63 @@ export const customModel = (apiIdentifier: string) => {
       
       // Convert to a ReadableStream
       const encoder = new TextEncoder();
+      
+      function writeSSE(data: any) {
+        return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
+      }
+
       const stream = new ReadableStream({
         async start(controller) {
           console.log('Stream start called');
           try {
             let content = '';
-            // Send the initial JSON structure
-            const initialJSON = '{"id":"message_1","role":"assistant","content":"';
-            console.log('Sending initial JSON structure:', initialJSON);
-            controller.enqueue(encoder.encode(initialJSON));
+            let messageId = crypto.randomUUID();
+            
+            // Send initial message
+            controller.enqueue(writeSSE({
+              id: messageId,
+              role: 'assistant',
+              content: '',
+              created_at: new Date().toISOString()
+            }));
             
             for await (const chunk of response) {
-              console.log('Raw chunk received:', JSON.stringify(chunk));
+              console.log('Raw chunk received:', JSON.stringify(chunk, null, 2));
+              
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
-                const encodedChunk = encoder.encode(chunk.delta.text);
+                const streamChunk = {
+                  id: messageId,
+                  role: 'assistant',
+                  content: content,
+                  created_at: new Date().toISOString()
+                };
+                
                 console.log('Sending chunk:', {
-                  text: chunk.delta.text,
-                  byteLength: encodedChunk.byteLength,
-                  content: content.length
+                  chunkLength: chunk.delta.text.length,
+                  totalLength: content.length,
+                  preview: content.slice(-50)
                 });
-                controller.enqueue(encodedChunk);
+
+                controller.enqueue(writeSSE(streamChunk));
               } else {
-                console.log('Skipping chunk due to type or missing text:', chunk.type);
+                console.log('Skipping non-text chunk:', chunk.type);
               }
             }
-            console.log('Stream complete, final content length:', content.length);
-            // Close the JSON structure
-            const closeJSON = '"}';
-            console.log('Sending close JSON structure:', closeJSON);
-            controller.enqueue(encoder.encode(closeJSON));
+            
+            // Send final message
+            controller.enqueue(writeSSE({
+              id: messageId,
+              role: 'assistant',
+              content: content,
+              created_at: new Date().toISOString()
+            }));
+            
+            // Send completion
+            console.log('Sending completion signal');
+            controller.enqueue(writeSSE('[DONE]'));
             controller.close();
-            console.log('Stream controller closed');
+            console.log('Stream closed. Final content length:', content.length);
           } catch (error) {
             console.error('Stream error:', error);
             if (error instanceof Error) {

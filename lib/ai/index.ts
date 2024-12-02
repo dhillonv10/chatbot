@@ -38,31 +38,34 @@ export const customModel = (apiIdentifier: string) => {
           console.log('Stream start called');
           try {
             let content = '';
-            let hasStartedContent = false;
+            let messageId: string | undefined;
             
             for await (const chunk of response) {
               console.log('Processing chunk:', chunk);
               
               if (chunk.type === 'message_start') {
-                // Start the message when we receive message_start
-                controller.enqueue(encoder.encode('{"id":"' + chunk.message.id + '","role":"assistant","content":"'));
-                hasStartedContent = true;
+                messageId = chunk.message.id;
+                // Send initial event
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                  id: messageId,
+                  role: 'assistant',
+                  content: ''
+                })}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-                if (!hasStartedContent) {
-                  // Fallback in case we didn't get a message_start
-                  controller.enqueue(encoder.encode('{"id":"message_1","role":"assistant","content":"'));
-                  hasStartedContent = true;
-                }
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                controller.enqueue(encoder.encode(chunk.delta.text));
+                // Send delta event
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                  id: messageId || 'message_1',
+                  role: 'assistant',
+                  content: content
+                })}\n\n`));
               }
               // Ignore other chunk types (message_delta, content_block_start, content_block_stop, etc)
             }
             
             console.log('Stream complete, final content:', content);
-            controller.enqueue(encoder.encode('"}'));
             controller.close();
           } catch (error) {
             console.error('Stream error:', error);

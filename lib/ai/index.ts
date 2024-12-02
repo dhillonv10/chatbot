@@ -29,78 +29,36 @@ export const customModel = (apiIdentifier: string) => {
         stream: true
       });
 
-      console.log('Got response from Anthropic, creating stream');
+      console.log('Got response from Anthropic, processing response');
       
-      // Convert to a ReadableStream
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        async start(controller) {
-          console.log('Stream start called');
-          try {
-            let content = '';
-            let messageId: string | undefined;
-            
-            for await (const chunk of response) {
-              console.log('Processing chunk:', chunk);
-              
-              if (chunk.type === 'message_start') {
-                messageId = chunk.message.id;
-                const message = {
-                  id: messageId,
-                  role: 'assistant',
-                  content: '',
-                  createdAt: Date.now()
-                };
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
-              } 
-              else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-                // Accumulate the text content
-                content += chunk.delta.text;
-                
-                // Clean up any command artifacts or JSON
-                let cleanContent = content
-                  .replace(/createDocument[^{]*/, '')
-                  .replace(/```json[\s\S]*?```/g, '')
-                  .replace(/\{[^}]*\}/g, '')
-                  .trim();
-                
-                const message = {
-                  id: messageId || 'msg-' + Date.now(),
-                  role: 'assistant',
-                  content: cleanContent,
-                  createdAt: Date.now()
-                };
-                
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
-              }
-              else if (chunk.type === 'message_stop') {
-                // Send final message
-                const message = {
-                  id: messageId || 'msg-' + Date.now(),
-                  role: 'assistant',
-                  content: content
-                    .replace(/createDocument[^{]*/, '')
-                    .replace(/```json[\s\S]*?```/g, '')
-                    .replace(/\{[^}]*\}/g, '')
-                    .trim(),
-                  createdAt: Date.now()
-                };
-                
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              }
-            }
-            
-            console.log('Stream complete, final content:', content);
-            controller.close();
-          } catch (error) {
-            console.error('Stream error:', error);
-            controller.error(error);
+      // Collect the full response
+      let fullResponse = '';
+      for await (const chunk of response) {
+        if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+          fullResponse += chunk.delta.text;
+        }
+      }
+
+      // Clean up any command artifacts
+      fullResponse = fullResponse
+        .replace(/createDocument[^{]*/, '')
+        .replace(/```json[\s\S]*?```/g, '')
+        .replace(/\{[^}]*\}/g, '')
+        .trim();
+
+      // Return the response as a simple JSON message
+      return new Response(
+        JSON.stringify({
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: fullResponse
+        }),
+        {
+          headers: {
+            'Content-Type': 'application/json'
           }
         }
-      });
-
-      return stream;
+      );
     }
   };
 };

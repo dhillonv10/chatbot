@@ -45,24 +45,38 @@ export const customModel = (apiIdentifier: string) => {
               
               if (chunk.type === 'message_start') {
                 messageId = chunk.message.id;
-                // Send initial event
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                // Send initial event with the message ID
+                const event = {
                   id: messageId,
                   role: 'assistant',
-                  content: ''
-                })}\n\n`));
+                  content: '',
+                  createdAt: new Date()
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                // Send delta event
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify({
+                // Send the full content with each delta
+                const event = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: content
-                })}\n\n`));
+                  content: content,
+                  createdAt: new Date()
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               }
-              // Ignore other chunk types (message_delta, content_block_start, content_block_stop, etc)
+              else if (chunk.type === 'message_stop') {
+                // Send a final event to mark completion
+                const event = {
+                  id: messageId || 'message_1',
+                  role: 'assistant',
+                  content: content,
+                  createdAt: new Date()
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              }
             }
             
             console.log('Stream complete, final content:', content);

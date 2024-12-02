@@ -46,19 +46,12 @@ export const customModel = (apiIdentifier: string) => {
         .replace(/\{[^}]*\}/g, '')
         .trim();
 
-      // Return the response as a simple JSON message
-      return new Response(
-        JSON.stringify({
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: fullResponse
-        }),
-        {
-          headers: {
-            'Content-Type': 'application/json'
-          }
-        }
-      );
+      // Return the response as a simple JSON string
+      return new Response(JSON.stringify({
+        role: 'assistant',
+        content: fullResponse,
+        id: Date.now().toString()
+      }));
     }
   };
 };

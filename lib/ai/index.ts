@@ -1,58 +1,32 @@
-import { type Message } from 'ai';
-import { Anthropic } from '@anthropic-ai/sdk';
-
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
-}
+import Anthropic from '@anthropic-ai/sdk';
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '' // Handle empty string case for Vercel env
+  apiKey: process.env.ANTHROPIC_API_KEY || ''
 });
 
-export const customModel = (apiIdentifier: string) => {
-  return {
-    id: apiIdentifier,
-    provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
-      // Format messages with explicit type literals
-      const formattedMessages = messages.map(msg => ({
-        role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
-        content: msg.content
-      }));
+export async function handler(messages: any[]) {
+  const response = await anthropic.messages.create({
+    model: 'claude-3-opus-20240229',
+    max_tokens: 1024,
+    messages: messages.map(m => ({
+      role: m.role,
+      content: m.content
+    }))
+  });
 
-      console.log('Starting API call with messages:', messages);
-      const response = await anthropic.messages.create({
-        model: apiIdentifier,
-        messages: formattedMessages,
-        system: options?.system,
-        max_tokens: 4096,
-        stream: true
-      });
-
-      console.log('Got response from Anthropic, processing response');
-      
-      // Collect all text from Claude
-      let content = '';
-      for await (const chunk of response) {
-        if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-          content += chunk.delta.text;
-        }
-      }
-
-      // Clean and return simple response
-      content = content
-        .replace(/createDocument[^{]*/, '')
-        .replace(/```json[\s\S]*?```/g, '')
-        .replace(/\{[^}]*\}/g, '')
-        .trim();
-
-      return {
-        messages: [{
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: content
-        }]
-      };
-    }
+  const message = {
+    id: response.id,
+    role: 'assistant',
+    content: response.content[0].text
   };
-};
+
+  // Format for Vercel AI SDK
+  const encoder = new TextEncoder();
+  return new ReadableStream({
+    start(controller) {
+      controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+      controller.close();
+    }
+  });
+}

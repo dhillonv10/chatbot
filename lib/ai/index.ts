@@ -67,11 +67,15 @@ export const customModel = (apiIdentifier: string) => {
             console.log('Stream controller closed');
           } catch (error) {
             console.error('Stream error:', error);
-            console.error('Error details:', {
-              name: error.name,
-              message: error.message,
-              stack: error.stack
-            });
+            if (error instanceof Error) {
+              console.error('Error details:', {
+                name: error.name,
+                message: error.message,
+                stack: error.stack
+              });
+            } else {
+              console.error('Unknown error type:', error);
+            }
             controller.error(error);
           }
         }

@@ -59,12 +59,16 @@ export function Chat({
       mutate('/api/history');
     },
     onError: (error) => {
-      console.error('Chat error:', {
-        name: error.name,
-        message: error.message,
-        cause: error.cause,
-        stack: error.stack
-      });
+      if (error instanceof Error) {
+        console.error('Chat error:', {
+          name: error.name,
+          message: error.message,
+          cause: error.cause,
+          stack: error.stack
+        });
+      } else {
+        console.error('Unknown chat error:', error);
+      }
     }
   });
 

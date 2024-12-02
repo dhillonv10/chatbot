@@ -68,7 +68,8 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  return new Response(response, {
+  // Get the ReadableStream from the StreamTextResult
+  return new Response(response.body, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',

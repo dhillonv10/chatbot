@@ -38,16 +38,29 @@ export const customModel = (apiIdentifier: string) => {
           console.log('Stream start called');
           try {
             let content = '';
+            let hasStartedContent = false;
+            
             for await (const chunk of response) {
               console.log('Processing chunk:', chunk);
-              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+              
+              if (chunk.type === 'message_start') {
+                // Start the message when we receive message_start
+                controller.enqueue(encoder.encode('{"id":"' + chunk.message.id + '","role":"assistant","content":"'));
+                hasStartedContent = true;
+              } 
+              else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+                if (!hasStartedContent) {
+                  // Fallback in case we didn't get a message_start
+                  controller.enqueue(encoder.encode('{"id":"message_1","role":"assistant","content":"'));
+                  hasStartedContent = true;
+                }
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
-                controller.enqueue(queue);
                 controller.enqueue(encoder.encode(chunk.delta.text));
               }
+              // Ignore other chunk types (message_delta, content_block_start, content_block_stop, etc)
             }
+            
             console.log('Stream complete, final content:', content);
             controller.enqueue(encoder.encode('"}'));
             controller.close();

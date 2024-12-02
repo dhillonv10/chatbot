@@ -14,7 +14,7 @@ export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<ReadableStream> {
+    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<ReadableStream<Uint8Array>> {
       // Format messages with explicit type literals
       const formattedMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' as const : 'assistant' as const,

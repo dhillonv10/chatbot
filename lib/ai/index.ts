@@ -1,32 +1,64 @@
-import Anthropic from '@anthropic-ai/sdk';
+import { type Message } from 'ai';
+import { Anthropic } from '@anthropic-ai/sdk';
+
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
+}
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || ''
+  apiKey: process.env.ANTHROPIC_API_KEY || '' // Handle empty string case for Vercel env
 });
 
-export async function handler(messages: any[]) {
-  const response = await anthropic.messages.create({
-    model: 'claude-3-opus-20240229',
-    max_tokens: 1024,
-    messages: messages.map(m => ({
-      role: m.role,
-      content: m.content
-    }))
-  });
+export const customModel = (apiIdentifier: string) => {
+  return {
+    id: apiIdentifier,
+    provider: 'anthropic' as const,
+    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
+      // Format messages with explicit type literals
+      const formattedMessages = messages.map(msg => ({
+        role: msg.role === 'user' ? 'user' as const : 'assistant' as const,
+        content: msg.content
+      }));
 
-  const message = {
-    id: response.id,
-    role: 'assistant',
-    content: response.content[0].text
-  };
+      console.log('Starting API call with messages:', messages);
+      const response = await anthropic.messages.create({
+        model: apiIdentifier,
+        messages: formattedMessages,
+        system: options?.system,
+        max_tokens: 4096,
+        stream: true
+      });
 
-  // Format for Vercel AI SDK
-  const encoder = new TextEncoder();
-  return new ReadableStream({
-    start(controller) {
-      controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
-      controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-      controller.close();
+      console.log('Got response from Anthropic, creating stream');
+      
+      // Convert to a ReadableStream
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        async start(controller) {
+          console.log('Stream start called');
+          try {
+            let content = '';
+            for await (const chunk of response) {
+              console.log('Processing chunk:', chunk);
+              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+                content += chunk.delta.text;
+                console.log('Accumulated content:', content);
+                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
+                controller.enqueue(queue);
+                controller.enqueue(encoder.encode(chunk.delta.text));
+              }
+            }
+            console.log('Stream complete, final content:', content);
+            controller.enqueue(encoder.encode('"}'));
+            controller.close();
+          } catch (error) {
+            console.error('Stream error:', error);
+            controller.error(error);
+          }
+        }
+      });
+
+      return stream;
     }
-  });
-}
+  };
+};

@@ -33,36 +33,28 @@ export const customModel = (apiIdentifier: string) => {
       
       // Convert to a ReadableStream
       const encoder = new TextEncoder();
+      let counter = 0;
       
-      function writeSSE(data: any) {
-        return encoder.encode(`data: ${JSON.stringify(data)}\n\n`);
-      }
-
       const stream = new ReadableStream({
         async start(controller) {
           console.log('Stream start called');
           try {
             let content = '';
-            let messageId = crypto.randomUUID();
-            
-            // Send initial message
-            controller.enqueue(writeSSE({
-              id: messageId,
-              role: 'assistant',
-              content: '',
-              created_at: new Date().toISOString()
-            }));
             
             for await (const chunk of response) {
               console.log('Raw chunk received:', JSON.stringify(chunk, null, 2));
               
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
-                const streamChunk = {
-                  id: messageId,
-                  role: 'assistant',
-                  content: content,
-                  created_at: new Date().toISOString()
+                
+                // Format exactly as the ai package expects
+                const message = {
+                  id: `message_${counter}`,
+                  role: 'assistant' as const,
+                  content,
+                  createdAt: new Date(),
+                  name: undefined,
+                  function_call: undefined,
                 };
                 
                 console.log('Sending chunk:', {
@@ -71,23 +63,17 @@ export const customModel = (apiIdentifier: string) => {
                   preview: content.slice(-50)
                 });
 
-                controller.enqueue(writeSSE(streamChunk));
+                const payload = `data: ${JSON.stringify(message)}\n\n`;
+                controller.enqueue(encoder.encode(payload));
+                counter++;
               } else {
                 console.log('Skipping non-text chunk:', chunk.type);
               }
             }
             
-            // Send final message
-            controller.enqueue(writeSSE({
-              id: messageId,
-              role: 'assistant',
-              content: content,
-              created_at: new Date().toISOString()
-            }));
-            
             // Send completion
             console.log('Sending completion signal');
-            controller.enqueue(writeSSE('[DONE]'));
+            controller.enqueue(encoder.encode('data: [DONE]\n\n'));
             controller.close();
             console.log('Stream closed. Final content length:', content.length);
           } catch (error) {

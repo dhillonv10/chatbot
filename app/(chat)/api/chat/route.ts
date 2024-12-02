@@ -1,35 +1,9 @@
-import {
-  type Message,
-  convertToCoreMessages,
-} from 'ai';
-import { z } from 'zod';
-
-import { auth } from '@/app/(auth)/auth';
-import { customModel } from '@/lib/ai';
-import { models } from '@/lib/ai/models';
-import { systemPrompt } from '@/lib/ai/prompts';
-import {
-  deleteChatById,
-  getChatById,
-  saveChat,
-  saveMessages,
-} from '@/lib/db/queries';
-import {
-  generateUUID,
-  getMostRecentUserMessage,
-} from '@/lib/utils';
-
-import { generateTitleFromUserMessage } from '../../actions';
-
-export const maxDuration = 60;
-
 export async function POST(request: Request) {
   const {
     id,
     messages,
     modelId,
-  }: { id: string; messages: Array<Message>; modelId: string } =
-    await request.json();
+  }: { id: string; messages: Array<Message>; modelId: string } = await request.json();
 
   const session = await auth();
 
@@ -65,35 +39,21 @@ export async function POST(request: Request) {
 
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
-    options: { system: systemPrompt }
+    options: { system: systemPrompt },
   });
 
-  return new Response(response, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'X-Accel-Buffering': 'no',
-      'Content-Encoding': 'none'
-    },
-  });
-}
-
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return new Response('Unauthorized', { status: 401 });
+  // Properly process the streamed response
+  if (response.body) {
+    return new Response(response.body, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+        'X-Accel-Buffering': 'no',
+        'Content-Encoding': 'none',
+      },
+    });
   }
 
-  if (!id) {
-    return new Response('Missing chat ID', { status: 400 });
-  }
-
-  await deleteChatById({ id });
-
-  return new Response('OK');
+  return new Response('Failed to generate response', { status: 500 });
 }

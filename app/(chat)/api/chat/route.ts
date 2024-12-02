@@ -1,4 +1,4 @@
-import { type Message, convertToCoreMessages } from 'ai';
+import { convertToCoreMessages } from 'ai';
 import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
@@ -20,8 +20,8 @@ import { generateTitleFromUserMessage } from '../../actions';
 
 export const maxDuration = 60;
 
-// Define the Message type if not imported from 'ai'
-type Message = {
+// Renamed Local Message type to avoid conflict
+type LocalMessage = {
   id: string;
   role: 'user' | 'assistant';
   content: string;
@@ -33,7 +33,7 @@ export async function POST(request: Request) {
     id,
     messages,
     modelId,
-  }: { id: string; messages: Array<Message>; modelId: string } = await request.json();
+  }: { id: string; messages: Array<LocalMessage>; modelId: string } = await request.json();
 
   const session = await auth();
 

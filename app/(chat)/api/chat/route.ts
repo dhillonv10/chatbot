@@ -68,13 +68,7 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  return new Response(response, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
-    },
-  });
+  return Response.json(response);
 }
 
 export async function DELETE(request: Request) {

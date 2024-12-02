@@ -31,40 +31,28 @@ export const customModel = (apiIdentifier: string) => {
 
       console.log('Got response from Anthropic, processing response');
       
-      // Collect the full response
-      let fullResponse = '';
+      // Collect all text from Claude
+      let content = '';
       for await (const chunk of response) {
         if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-          fullResponse += chunk.delta.text;
+          content += chunk.delta.text;
         }
       }
 
-      // Clean up any command artifacts
-      fullResponse = fullResponse
+      // Clean and return simple response
+      content = content
         .replace(/createDocument[^{]*/, '')
         .replace(/```json[\s\S]*?```/g, '')
         .replace(/\{[^}]*\}/g, '')
         .trim();
 
-      // Create a ReadableStream that sends a single message
-      const encoder = new TextEncoder();
-      const stream = new ReadableStream({
-        start(controller) {
-          // Send the message
-          const message = {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: fullResponse
-          };
-          controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
-          
-          // Send the [DONE] message
-          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-          controller.close();
-        }
-      });
-
-      return stream;
+      return {
+        messages: [{
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: content
+        }]
+      };
     }
   };
 };

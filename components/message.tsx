@@ -51,7 +51,7 @@ export const PreviewMessage = ({
         <div className="flex flex-col gap-2 w-full">
           {message.content && (
             <div className="flex flex-col gap-4">
-              <Markdown>{message.content as string}</Markdown>
+              <Markdown>{typeof message.content === 'string' ? message.content : JSON.stringify(message.content)}</Markdown>
             </div>
           )}
 

@@ -39,10 +39,15 @@ export function Chat({
     isLoading,
     stop,
     data: streamingData,
+    error,
   } = useChat({
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
+      if (!response.ok) {
+        console.error('Chat response error:', response.statusText);
+        return;
+      }
       console.log('Chat response received:', response);
     },
     onFinish: (message) => {

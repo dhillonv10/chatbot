@@ -45,7 +45,6 @@ export const customModel = (apiIdentifier: string) => {
               
               if (chunk.type === 'message_start') {
                 messageId = chunk.message.id;
-                // Send initial event with the message ID
                 const event = {
                   id: messageId,
                   role: 'assistant',
@@ -54,45 +53,44 @@ export const customModel = (apiIdentifier: string) => {
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
-                // Extract just the text content, removing any JSON commands
-                const text = chunk.delta.text;
-                content += text;
+                content += chunk.delta.text;
                 
-                // Create a clean version of content without JSON commands
+                // Extract just the actual text content
                 let cleanContent = content;
-                const jsonStart = cleanContent.indexOf('{"action":');
-                if (jsonStart !== -1) {
-                  const jsonEnd = cleanContent.indexOf('}', jsonStart) + 1;
-                  if (jsonEnd !== 0) {
-                    cleanContent = cleanContent.substring(0, jsonStart).trim() + 
-                                 cleanContent.substring(jsonEnd).trim();
-                  }
-                }
                 
-                // Send the cleaned content
+                // Handle JSON within code blocks
+                cleanContent = cleanContent.replace(/```json\s*{[\s\S]*?}\s*```/g, '');
+                
+                // Remove any remaining standalone JSON objects
+                cleanContent = cleanContent.replace(/{\s*"[^}]*}/g, '');
+                
+                // Clean up any leftover artifacts
+                cleanContent = cleanContent
+                  .replace(/```\s*$/g, '') // Remove trailing backticks
+                  .replace(/\n{3,}/g, '\n\n') // Normalize multiple newlines
+                  .trim();
+                
                 const event = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: cleanContent.trim()
+                  content: cleanContent
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
               }
               else if (chunk.type === 'message_stop') {
-                // Clean up the final content
+                // Final cleanup of content
                 let cleanContent = content;
-                const jsonStart = cleanContent.indexOf('{"action":');
-                if (jsonStart !== -1) {
-                  const jsonEnd = cleanContent.indexOf('}', jsonStart) + 1;
-                  if (jsonEnd !== 0) {
-                    cleanContent = cleanContent.substring(0, jsonStart).trim() + 
-                                 cleanContent.substring(jsonEnd).trim();
-                  }
-                }
+                cleanContent = cleanContent.replace(/```json\s*{[\s\S]*?}\s*```/g, '');
+                cleanContent = cleanContent.replace(/{\s*"[^}]*}/g, '');
+                cleanContent = cleanContent
+                  .replace(/```\s*$/g, '')
+                  .replace(/\n{3,}/g, '\n\n')
+                  .trim();
                 
                 const event = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: cleanContent.trim()
+                  content: cleanContent
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));

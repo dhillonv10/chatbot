@@ -58,17 +58,24 @@ export const customModel = (apiIdentifier: string) => {
                 // Extract just the actual text content
                 let cleanContent = content;
                 
-                // Handle JSON within code blocks
-                cleanContent = cleanContent.replace(/```json\s*{[\s\S]*?}\s*```/g, '');
+                // Handle createDocument command
+                cleanContent = cleanContent.replace(/createDocument\s*#/, '');
                 
-                // Remove any remaining standalone JSON objects
-                cleanContent = cleanContent.replace(/{\s*"[^}]*}/g, '');
-                
-                // Clean up any leftover artifacts
+                // Remove any remaining commands or JSON
                 cleanContent = cleanContent
-                  .replace(/```\s*$/g, '') // Remove trailing backticks
-                  .replace(/\n{3,}/g, '\n\n') // Normalize multiple newlines
+                  .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
+                  .replace(/{\s*"[^}]*}/g, '')
+                  .replace(/```\s*$/g, '')
+                  .replace(/\n{3,}/g, '\n\n')
                   .trim();
+                
+                // Extract content from within createDocument if present
+                const createDocMatch = content.match(/createDocument.*?\{.*?"content":\s*"(.*?)"\s*\}/s);
+                if (createDocMatch) {
+                  cleanContent = createDocMatch[1]
+                    .replace(/\\n/g, '\n')  // Handle escaped newlines
+                    .replace(/\\"/g, '"');   // Handle escaped quotes
+                }
                 
                 const event = {
                   id: messageId || 'message_1',
@@ -80,12 +87,25 @@ export const customModel = (apiIdentifier: string) => {
               else if (chunk.type === 'message_stop') {
                 // Final cleanup of content
                 let cleanContent = content;
-                cleanContent = cleanContent.replace(/```json\s*{[\s\S]*?}\s*```/g, '');
-                cleanContent = cleanContent.replace(/{\s*"[^}]*}/g, '');
+                
+                // Handle createDocument command
+                cleanContent = cleanContent.replace(/createDocument\s*#/, '');
+                
+                // Remove any remaining commands or JSON
                 cleanContent = cleanContent
+                  .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
+                  .replace(/{\s*"[^}]*}/g, '')
                   .replace(/```\s*$/g, '')
                   .replace(/\n{3,}/g, '\n\n')
                   .trim();
+                
+                // Extract content from within createDocument if present
+                const createDocMatch = content.match(/createDocument.*?\{.*?"content":\s*"(.*?)"\s*\}/s);
+                if (createDocMatch) {
+                  cleanContent = createDocMatch[1]
+                    .replace(/\\n/g, '\n')
+                    .replace(/\\"/g, '"');
+                }
                 
                 const event = {
                   id: messageId || 'message_1',

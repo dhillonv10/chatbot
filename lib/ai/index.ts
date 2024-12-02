@@ -1,4 +1,4 @@
-import { type Message } from 'ai';
+import { type Message, type ReadableStream } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
 import { streamText } from 'ai';
 
@@ -14,7 +14,7 @@ export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
+    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<ReadableStream> {
       // Format messages with explicit type literals
       const formattedMessages = messages.map(msg => ({
         role: msg.role === 'user' ? 'user' as const : 'assistant' as const,

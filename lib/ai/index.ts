@@ -38,17 +38,20 @@ export const customModel = (apiIdentifier: string) => {
           console.log('Stream start called');
           try {
             let content = '';
+            // Send the initial JSON structure
+            controller.enqueue(encoder.encode('{"id":"message_1","role":"assistant","content":"'));
+            
             for await (const chunk of response) {
               console.log('Processing chunk:', chunk);
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
-                controller.enqueue(queue);
+                // Only send the text content
                 controller.enqueue(encoder.encode(chunk.delta.text));
               }
             }
             console.log('Stream complete, final content:', content);
+            // Close the JSON structure
             controller.enqueue(encoder.encode('"}'));
             controller.close();
           } catch (error) {

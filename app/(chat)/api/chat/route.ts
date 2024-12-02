@@ -1,3 +1,33 @@
+import { type Message, convertToCoreMessages } from 'ai';
+import { z } from 'zod';
+
+import { auth } from '@/app/(auth)/auth';
+import { customModel } from '@/lib/ai';
+import { models } from '@/lib/ai/models';
+import { systemPrompt } from '@/lib/ai/prompts';
+import {
+  deleteChatById,
+  getChatById,
+  saveChat,
+  saveMessages,
+} from '@/lib/db/queries';
+import {
+  generateUUID,
+  getMostRecentUserMessage,
+} from '@/lib/utils';
+
+import { generateTitleFromUserMessage } from '../../actions';
+
+export const maxDuration = 60;
+
+// Define the Message type if not imported from 'ai'
+type Message = {
+  id: string;
+  role: 'user' | 'assistant';
+  content: string;
+  createdAt?: Date;
+};
+
 export async function POST(request: Request) {
   const {
     id,
@@ -42,7 +72,6 @@ export async function POST(request: Request) {
     options: { system: systemPrompt },
   });
 
-  // Properly process the streamed response
   if (response.body) {
     return new Response(response.body, {
       headers: {
@@ -56,4 +85,23 @@ export async function POST(request: Request) {
   }
 
   return new Response('Failed to generate response', { status: 500 });
+}
+
+export async function DELETE(request: Request) {
+  const { searchParams } = new URL(request.url);
+  const id = searchParams.get('id');
+
+  const session = await auth();
+
+  if (!session?.user?.id) {
+    return new Response('Unauthorized', { status: 401 });
+  }
+
+  if (!id) {
+    return new Response('Missing chat ID', { status: 400 });
+  }
+
+  await deleteChatById({ id });
+
+  return new Response('OK');
 }

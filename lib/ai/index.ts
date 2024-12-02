@@ -45,62 +45,47 @@ export const customModel = (apiIdentifier: string) => {
               
               if (chunk.type === 'message_start') {
                 messageId = chunk.message.id;
-                // Send initial message
                 const message = {
                   id: messageId,
                   role: 'assistant',
                   content: '',
-                  createdAt: new Date()
+                  createdAt: Date.now()
                 };
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
+                // Accumulate the text content
                 content += chunk.delta.text;
                 
-                // Clean up the content
-                let cleanContent = content;
+                // Clean up any command artifacts or JSON
+                let cleanContent = content
+                  .replace(/createDocument[^{]*/, '')
+                  .replace(/```json[\s\S]*?```/g, '')
+                  .replace(/\{[^}]*\}/g, '')
+                  .trim();
                 
-                // Extract content from createDocument if present
-                const createDocMatch = content.match(/createDocument.*?\{.*?"content":\s*"(.*?)"\s*\}/s);
-                if (createDocMatch) {
-                  cleanContent = createDocMatch[1]
-                    .replace(/\\n/g, '\n')
-                    .replace(/\\"/g, '"')
-                    .replace(/\\/g, '');
-                } else {
-                  // Otherwise clean up any command artifacts
-                  cleanContent = cleanContent
-                    .replace(/createDocument\s*#/, '')
-                    .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
-                    .replace(/{\s*"[^}]*}/g, '')
-                    .replace(/```\s*$/g, '')
-                    .replace(/\n{3,}/g, '\n\n')
-                    .trim();
-                }
-                
-                // Send the message in the exact format expected by Vercel AI SDK
                 const message = {
-                  id: messageId || 'message_1',
+                  id: messageId || 'msg-' + Date.now(),
                   role: 'assistant',
                   content: cleanContent,
-                  createdAt: new Date()
+                  createdAt: Date.now()
                 };
+                
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
               }
               else if (chunk.type === 'message_stop') {
-                // Send the final message
+                // Send final message
                 const message = {
-                  id: messageId || 'message_1',
+                  id: messageId || 'msg-' + Date.now(),
                   role: 'assistant',
                   content: content
-                    .replace(/createDocument\s*#/, '')
-                    .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
-                    .replace(/{\s*"[^}]*}/g, '')
-                    .replace(/```\s*$/g, '')
-                    .replace(/\n{3,}/g, '\n\n')
+                    .replace(/createDocument[^{]*/, '')
+                    .replace(/```json[\s\S]*?```/g, '')
+                    .replace(/\{[^}]*\}/g, '')
                     .trim(),
-                  createdAt: new Date()
+                  createdAt: Date.now()
                 };
+                
                 controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               }

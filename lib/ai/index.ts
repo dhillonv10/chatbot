@@ -45,74 +45,63 @@ export const customModel = (apiIdentifier: string) => {
               
               if (chunk.type === 'message_start') {
                 messageId = chunk.message.id;
-                const event = {
+                // Send initial message
+                const message = {
                   id: messageId,
                   role: 'assistant',
-                  content: ''
+                  content: '',
+                  createdAt: new Date()
                 };
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
               } 
               else if (chunk.type === 'content_block_delta' && chunk.delta?.type === 'text_delta') {
                 content += chunk.delta.text;
                 
-                // Extract just the actual text content
+                // Clean up the content
                 let cleanContent = content;
                 
-                // Handle createDocument command
-                cleanContent = cleanContent.replace(/createDocument\s*#/, '');
-                
-                // Remove any remaining commands or JSON
-                cleanContent = cleanContent
-                  .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
-                  .replace(/{\s*"[^}]*}/g, '')
-                  .replace(/```\s*$/g, '')
-                  .replace(/\n{3,}/g, '\n\n')
-                  .trim();
-                
-                // Extract content from within createDocument if present
-                const createDocMatch = content.match(/createDocument.*?\{.*?"content":\s*"(.*?)"\s*\}/s);
-                if (createDocMatch) {
-                  cleanContent = createDocMatch[1]
-                    .replace(/\\n/g, '\n')  // Handle escaped newlines
-                    .replace(/\\"/g, '"');   // Handle escaped quotes
-                }
-                
-                const event = {
-                  id: messageId || 'message_1',
-                  role: 'assistant',
-                  content: cleanContent
-                };
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
-              }
-              else if (chunk.type === 'message_stop') {
-                // Final cleanup of content
-                let cleanContent = content;
-                
-                // Handle createDocument command
-                cleanContent = cleanContent.replace(/createDocument\s*#/, '');
-                
-                // Remove any remaining commands or JSON
-                cleanContent = cleanContent
-                  .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
-                  .replace(/{\s*"[^}]*}/g, '')
-                  .replace(/```\s*$/g, '')
-                  .replace(/\n{3,}/g, '\n\n')
-                  .trim();
-                
-                // Extract content from within createDocument if present
+                // Extract content from createDocument if present
                 const createDocMatch = content.match(/createDocument.*?\{.*?"content":\s*"(.*?)"\s*\}/s);
                 if (createDocMatch) {
                   cleanContent = createDocMatch[1]
                     .replace(/\\n/g, '\n')
-                    .replace(/\\"/g, '"');
+                    .replace(/\\"/g, '"')
+                    .replace(/\\/g, '');
+                } else {
+                  // Otherwise clean up any command artifacts
+                  cleanContent = cleanContent
+                    .replace(/createDocument\s*#/, '')
+                    .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
+                    .replace(/{\s*"[^}]*}/g, '')
+                    .replace(/```\s*$/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim();
                 }
                 
-                const event = {
+                // Send the message in the exact format expected by Vercel AI SDK
+                const message = {
                   id: messageId || 'message_1',
                   role: 'assistant',
-                  content: cleanContent
+                  content: cleanContent,
+                  createdAt: new Date()
                 };
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(event)}\n\n`));
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+              }
+              else if (chunk.type === 'message_stop') {
+                // Send the final message
+                const message = {
+                  id: messageId || 'message_1',
+                  role: 'assistant',
+                  content: content
+                    .replace(/createDocument\s*#/, '')
+                    .replace(/```json\s*{[\s\S]*?}\s*```/g, '')
+                    .replace(/{\s*"[^}]*}/g, '')
+                    .replace(/```\s*$/g, '')
+                    .replace(/\n{3,}/g, '\n\n')
+                    .trim(),
+                  createdAt: new Date()
+                };
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               }
             }

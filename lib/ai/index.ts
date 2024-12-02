@@ -25,7 +25,7 @@ export const customModel = (apiIdentifier: string) => {
 
       // Use streamText to handle the streamed response
       const result = streamText({
-        model: apiIdentifier, // Use the provided model identifier, e.g., "claude-3.5"
+        model: claude-3-5-sonnet-20241022, // Use the provided model identifier, e.g., "claude-3.5"
         maxTokens: 4096,
         messages: formattedMessages,
         system: options?.system,

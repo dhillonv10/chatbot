@@ -46,12 +46,25 @@ export const customModel = (apiIdentifier: string) => {
         .replace(/\{[^}]*\}/g, '')
         .trim();
 
-      // Return the response as a simple JSON string
-      return new Response(JSON.stringify({
-        role: 'assistant',
-        content: fullResponse,
-        id: Date.now().toString()
-      }));
+      // Create a ReadableStream that sends a single message
+      const encoder = new TextEncoder();
+      const stream = new ReadableStream({
+        start(controller) {
+          // Send the message
+          const message = {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: fullResponse
+          };
+          controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+          
+          // Send the [DONE] message
+          controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+          controller.close();
+        }
+      });
+
+      return stream;
     }
   };
 };

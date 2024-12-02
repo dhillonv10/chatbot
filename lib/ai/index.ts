@@ -39,28 +39,46 @@ export const customModel = (apiIdentifier: string) => {
           try {
             let content = '';
             // Send the initial JSON structure
-            controller.enqueue(encoder.encode('{"id":"message_1","role":"assistant","content":"'));
+            const initialJSON = '{"id":"message_1","role":"assistant","content":"';
+            console.log('Sending initial JSON structure:', initialJSON);
+            controller.enqueue(encoder.encode(initialJSON));
             
             for await (const chunk of response) {
-              console.log('Processing chunk:', chunk);
+              console.log('Raw chunk received:', JSON.stringify(chunk));
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
-                console.log('Accumulated content:', content);
-                // Only send the text content
-                controller.enqueue(encoder.encode(chunk.delta.text));
+                const encodedChunk = encoder.encode(chunk.delta.text);
+                console.log('Sending chunk:', {
+                  text: chunk.delta.text,
+                  byteLength: encodedChunk.byteLength,
+                  content: content.length
+                });
+                controller.enqueue(encodedChunk);
+              } else {
+                console.log('Skipping chunk due to type or missing text:', chunk.type);
               }
             }
-            console.log('Stream complete, final content:', content);
+            console.log('Stream complete, final content length:', content.length);
             // Close the JSON structure
-            controller.enqueue(encoder.encode('"}'));
+            const closeJSON = '"}';
+            console.log('Sending close JSON structure:', closeJSON);
+            controller.enqueue(encoder.encode(closeJSON));
             controller.close();
+            console.log('Stream controller closed');
           } catch (error) {
             console.error('Stream error:', error);
+            console.error('Error details:', {
+              name: error.name,
+              message: error.message,
+              stack: error.stack
+            });
             controller.error(error);
           }
         }
       });
 
+      console.log('Stream created, returning to client');
+      
       return stream;
     }
   };

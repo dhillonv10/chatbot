@@ -30,6 +30,14 @@ export const PreviewMessage = ({
   vote: Vote | undefined;
   isLoading: boolean;
 }) => {
+  console.log('Rendering PreviewMessage:', {
+    id: message.id,
+    role: message.role,
+    contentLength: message.content?.length,
+    isLoading,
+    hasTools: !!message.toolInvocations?.length
+  });
+
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"

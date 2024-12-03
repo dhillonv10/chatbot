@@ -37,14 +37,27 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           console.log('Stream start called');
           try {
+            // Send the initial message structure
+            controller.enqueue(encoder.encode(JSON.stringify({
+              id: Date.now().toString(),
+              role: 'assistant',
+              content: '',
+              createdAt: new Date()
+            }) + '\n'));
+
             let content = '';
             for await (const chunk of response) {
               console.log('Processing chunk:', chunk);
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                // Send the text chunk directly without wrapping in JSON
-                controller.enqueue(encoder.encode(chunk.delta.text));
+                // Send a delta update
+                controller.enqueue(encoder.encode(JSON.stringify({
+                  id: Date.now().toString(),
+                  role: 'assistant',
+                  content: chunk.delta.text,
+                  createdAt: new Date()
+                }) + '\n'));
               }
             }
             console.log('Stream complete, final content:', content);

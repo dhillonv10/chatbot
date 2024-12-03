@@ -77,14 +77,15 @@ export const customModel = (apiIdentifier: string) => {
               console.log('Stream completed, sending DONE event');
               controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               controller.close();
-            } catch (error) {
+            } catch (error: unknown) {
+              const err = error as Error;
               console.error('Stream processing error:', {
-                name: error?.name,
-                message: error?.message,
-                stack: error?.stack,
+                name: err?.name,
+                message: err?.message,
+                stack: err?.stack,
                 fullContent
               });
-              controller.error(error);
+              controller.error(err);
             }
           }
         });
@@ -97,16 +98,17 @@ export const customModel = (apiIdentifier: string) => {
           },
         });
 
-      } catch (error) {
+      } catch (error: unknown) {
+        const err = error as Error;
         console.error('Anthropic API Error:', {
-          name: error?.name,
-          message: error?.message,
-          stack: error?.stack
+          name: err?.name,
+          message: err?.message,
+          stack: err?.stack
         });
         return new Response(
           JSON.stringify({ 
             error: 'Failed to generate response',
-            details: error instanceof Error ? error.message : 'Unknown error'
+            details: err?.message || 'Unknown error'
           }), 
           { 
             status: 500,

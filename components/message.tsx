@@ -1,5 +1,3 @@
-'use client';
-
 import type { Message } from 'ai';
 import cx from 'classnames';
 import { motion } from 'framer-motion';
@@ -203,3 +201,42 @@ export const ThinkingMessage = () => {
     </motion.div>
   );
 };
+
+export interface ChatMessageProps {
+  message: Message;
+  isLoading?: boolean;
+}
+
+export function Message({ message, isLoading }: ChatMessageProps) {
+  const { role, content } = message;
+  const isUser = role === 'user';
+
+  console.log('Message component rendering:', {
+    role,
+    contentType: typeof content,
+    contentLength: content?.length,
+    isLoading
+  });
+
+  if (!content || typeof content !== 'string') {
+    console.warn('Invalid message content:', { content, type: typeof content });
+    return null;
+  }
+
+  return (
+    <div className="group relative mb-4 flex items-start md:-ml-12">
+      <div
+        className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow ${
+          isUser ? 'bg-background' : 'bg-primary text-primary-foreground'
+        }`}
+      >
+        {isUser ? <IconUser /> : <IconOpenAI />}
+      </div>
+      <div className="ml-4 flex-1 space-y-2 overflow-hidden px-1">
+        <div className="prose break-words dark:prose-invert">
+          <Markdown>{content}</Markdown>
+        </div>
+      </div>
+    </div>
+  );
+}

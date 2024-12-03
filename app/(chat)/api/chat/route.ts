@@ -68,13 +68,8 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  // Ensure proper headers for streaming
-  return new Response(new ReadableStream({
-    async pull(controller) {
-      controller.enqueue(response);
-      controller.close();
-    },
-  }), {
+  // Return the response stream directly
+  return new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',

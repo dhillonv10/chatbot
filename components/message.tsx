@@ -41,6 +41,14 @@ export const PreviewMessage = ({
     messageKeys: Object.keys(message)
   });
 
+  const { role, content } = message;
+  const isUser = role === 'user';
+
+  if (!content || typeof content !== 'string') {
+    console.warn('Invalid message content:', { content, type: typeof content });
+    return null;
+  }
+
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"
@@ -60,16 +68,12 @@ export const PreviewMessage = ({
         )}
 
         <div className="flex flex-col gap-2 w-full">
-          {message.content ? (
-            <div className="flex flex-col gap-4">
-              <div className="debug-info" style={{display: 'none'}}>
-                Content before Markdown: {JSON.stringify(message.content)}
-              </div>
-              <Markdown>{message.content as string}</Markdown>
+          <div className="flex flex-col gap-4">
+            <div className="debug-info" style={{display: 'none'}}>
+              Content before Markdown: {JSON.stringify(message.content)}
             </div>
-          ) : (
-            <div className="text-muted-foreground">No content to display</div>
-          )}
+            <Markdown>{message.content as string}</Markdown>
+          </div>
 
           {message.toolInvocations && message.toolInvocations.length > 0 && (
             <div className="flex flex-col gap-4">

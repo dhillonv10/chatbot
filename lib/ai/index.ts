@@ -56,10 +56,15 @@ export const customModel = (apiIdentifier: string) => {
                   const text = chunk.delta.text;
                   fullContent += text;
                   
+                  // Ensure code blocks are properly formatted
+                  const formattedContent = fullContent
+                    .replace(/```(\w+)\n/g, '```$1\n') // Ensure language tags are properly formatted
+                    .replace(/```\n/g, '```plaintext\n'); // Add plaintext for code blocks without language
+                  
                   const data = {
                     id: String(counter++),
                     role: 'assistant',
-                    content: fullContent, // Send accumulated content
+                    content: formattedContent,
                     createdAt: new Date().toISOString()
                   };
                   

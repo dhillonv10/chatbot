@@ -1,8 +1,6 @@
 import Link from 'next/link';
 import React, { memo } from 'react';
-import ReactMarkdown from 'react-markdown';
-import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter';
-import { oneDark } from 'react-syntax-highlighter/dist/cjs/styles/prism';
+import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
@@ -17,122 +15,51 @@ const NonMemoizedMarkdown = ({ children }: { children: string }) => {
     return null;
   }
 
-  const components = {
+  const components: Partial<Components> = {
     code({ node, inline, className, children, ...props }) {
       const match = /language-(\w+)/.exec(className || '');
-      const lang = match ? match[1] : '';
-      
-      if (!inline && lang) {
-        return (
-          <SyntaxHighlighter
-            {...props}
-            style={oneDark}
-            language={lang}
-            PreTag="div"
-          >
-            {String(children).replace(/\n$/, '')}
-          </SyntaxHighlighter>
-        );
-      }
-      
-      return (
-        <code {...props} className={className}>
+      return !inline && match ? (
+        <pre
+          {...props}
+          className={`${className} overflow-x-auto rounded-lg bg-zinc-100 p-4 dark:bg-zinc-800`}
+        >
+          <code className={match[1]}>{children}</code>
+        </pre>
+      ) : (
+        <code
+          {...props}
+          className={`${className} rounded-md bg-zinc-100 px-1 py-0.5 dark:bg-zinc-800`}
+        >
           {children}
         </code>
       );
     },
-    ol: ({ node, children, ...props }) => {
-      return (
-        <ol className="list-decimal list-outside ml-4" {...props}>
-          {children}
-        </ol>
-      );
+    p({ children }) {
+      return <p className="mb-4 last:mb-0">{children}</p>;
     },
-    li: ({ node, children, ...props }) => {
-      return (
-        <li className="py-1" {...props}>
-          {children}
-        </li>
-      );
-    },
-    ul: ({ node, children, ...props }) => {
-      return (
-        <ul className="list-decimal list-outside ml-4" {...props}>
-          {children}
-        </ul>
-      );
-    },
-    strong: ({ node, children, ...props }) => {
-      return (
-        <span className="font-semibold" {...props}>
-          {children}
-        </span>
-      );
-    },
-    a: ({ node, children, ...props }) => {
+    a({ href, children }) {
       return (
         <Link
+          href={href || ''}
           className="text-blue-500 hover:underline"
           target="_blank"
-          rel="noreferrer"
-          {...props}
+          rel="noopener noreferrer"
         >
           {children}
         </Link>
       );
-    },
-    h1: ({ node, children, ...props }) => {
-      return (
-        <h1 className="text-3xl font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h1>
-      );
-    },
-    h2: ({ node, children, ...props }) => {
-      return (
-        <h2 className="text-2xl font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h2>
-      );
-    },
-    h3: ({ node, children, ...props }) => {
-      return (
-        <h3 className="text-xl font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h3>
-      );
-    },
-    h4: ({ node, children, ...props }) => {
-      return (
-        <h4 className="text-lg font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h4>
-      );
-    },
-    h5: ({ node, children, ...props }) => {
-      return (
-        <h5 className="text-base font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h5>
-      );
-    },
-    h6: ({ node, children, ...props }) => {
-      return (
-        <h6 className="text-sm font-semibold mt-6 mb-2" {...props}>
-          {children}
-        </h6>
-      );
-    },
+    }
   };
 
   return (
-    <ReactMarkdown remarkPlugins={[remarkGfm]} components={components}>
+    <ReactMarkdown
+      remarkPlugins={[remarkGfm]}
+      components={components}
+      className="prose dark:prose-invert"
+    >
       {children}
     </ReactMarkdown>
   );
 };
 
-export const Markdown = memo(
-  NonMemoizedMarkdown,
-  (prevProps, nextProps) => prevProps.children === nextProps.children,
-);
+export const Markdown = memo(NonMemoizedMarkdown);

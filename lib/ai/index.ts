@@ -20,7 +20,7 @@ export const customModel = (apiIdentifier: string) => {
       try {
         // Format messages to match the expected structure
         const formattedMessages = messages.map(msg => ({
-          role: msg.role === 'user' ? 'user' : 'assistant',
+          role: msg.role as 'user' | 'assistant',
           content: msg.content,
         }));
 

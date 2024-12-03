@@ -242,6 +242,29 @@ export function Message({ message, isLoading }: ChatMessageProps) {
         <div className="prose break-words dark:prose-invert">
           <Markdown>{content}</Markdown>
         </div>
+        {message.toolInvocations?.length > 0 && (
+          <div className="mt-4 flex flex-col gap-2">
+            {message.toolInvocations.map((tool) => (
+              <div
+                key={tool.toolCallId}
+                className="rounded-lg border bg-muted/50 p-4 text-sm"
+              >
+                <div className="font-medium">Tool: {tool.toolName}</div>
+                <div className="mt-1 font-mono text-xs">
+                  {JSON.stringify(tool.args, null, 2)}
+                </div>
+                {tool.state === 'result' && (
+                  <div className="mt-2">
+                    <div className="font-medium text-muted-foreground">Result:</div>
+                    <div className="mt-1 font-mono text-xs">
+                      {JSON.stringify(tool.result, null, 2)}
+                    </div>
+                  </div>
+                )}
+              </div>
+            ))}
+          </div>
+        )}
       </div>
     </div>
   );

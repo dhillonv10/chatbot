@@ -1,7 +1,6 @@
 import {
   type Message,
   convertToCoreMessages,
-  StreamingTextResponse,
 } from 'ai';
 import { z } from 'zod';
 
@@ -64,13 +63,18 @@ export async function POST(request: Request) {
     ],
   });
 
-  const response = await customModel(model.apiIdentifier).invoke({
+  const stream = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }
   });
 
-  // Use Vercel's StreamingTextResponse
-  return new StreamingTextResponse(response);
+  return new Response(stream, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+    },
+  });
 }
 
 export async function DELETE(request: Request) {

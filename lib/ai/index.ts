@@ -32,29 +32,65 @@ export const customModel = (apiIdentifier: string) => {
 
         console.log('Got response from Anthropic, creating stream');
 
-        // Create a stream that emits SSE formatted messages
         return new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
-            let messageId = Date.now().toString();
             let content = '';
 
             try {
+              // Send initial chunk
+              const initialChunk = {
+                choices: [
+                  {
+                    delta: { content: '', role: 'assistant' },
+                    index: 0,
+                    finish_reason: null
+                  }
+                ],
+                id: 'chatcmpl-' + Date.now(),
+                model: apiIdentifier,
+                object: 'chat.completion.chunk',
+                created: Date.now()
+              };
+              controller.enqueue(encoder.encode(JSON.stringify(initialChunk) + '\n'));
+
               for await (const chunk of response) {
                 if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                   content += chunk.delta.text;
                   
-                  const message = {
-                    id: messageId,
-                    role: 'assistant',
-                    content: content,
+                  const aiChunk = {
+                    choices: [
+                      {
+                        delta: { content: chunk.delta.text, role: 'assistant' },
+                        index: 0,
+                        finish_reason: null
+                      }
+                    ],
+                    id: 'chatcmpl-' + Date.now(),
+                    model: apiIdentifier,
+                    object: 'chat.completion.chunk',
+                    created: Date.now()
                   };
 
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+                  controller.enqueue(encoder.encode(JSON.stringify(aiChunk) + '\n'));
                 }
               }
-              // Send the done message and close
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+
+              // Send final chunk
+              const finalChunk = {
+                choices: [
+                  {
+                    delta: {},
+                    index: 0,
+                    finish_reason: 'stop'
+                  }
+                ],
+                id: 'chatcmpl-' + Date.now(),
+                model: apiIdentifier,
+                object: 'chat.completion.chunk',
+                created: Date.now()
+              };
+              controller.enqueue(encoder.encode(JSON.stringify(finalChunk) + '\n'));
               controller.close();
             } catch (error) {
               console.error('Stream processing error:', error);

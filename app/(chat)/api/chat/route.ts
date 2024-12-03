@@ -70,9 +70,9 @@ export async function POST(request: Request) {
 
   return new Response(stream, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      'Content-Type': 'text/plain; charset=utf-8',
+      'Transfer-Encoding': 'chunked',
+      'X-Content-Type-Options': 'nosniff',
     },
   });
 }

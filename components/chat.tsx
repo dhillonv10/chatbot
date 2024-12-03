@@ -76,7 +76,9 @@ export function Chat({
     if (streamingData) {
       console.log('Streaming data updated:', {
         chunks: streamingData.length,
-        lastChunk: streamingData[streamingData.length - 1]
+        lastChunk: streamingData[streamingData.length - 1],
+        allChunks: streamingData,
+        chunkTypes: streamingData.map(chunk => typeof chunk)
       });
     }
   }, [streamingData]);
@@ -85,8 +87,11 @@ export function Chat({
     console.log('Messages updated:', messages.map(msg => ({
       id: msg.id,
       role: msg.role,
+      content: msg.content,
+      contentType: typeof msg.content,
       contentLength: msg.content?.length,
-      hasTools: !!msg.toolInvocations?.length
+      hasTools: !!msg.toolInvocations?.length,
+      keys: Object.keys(msg)
     })));
   }, [messages]);
 

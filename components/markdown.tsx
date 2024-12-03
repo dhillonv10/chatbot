@@ -4,6 +4,23 @@ import ReactMarkdown, { type Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
 
 const NonMemoizedMarkdown = ({ children }: { children: string }) => {
+  console.log('Rendering Markdown component:', {
+    content: children,
+    contentLength: children?.length,
+    contentType: typeof children,
+    firstChars: children?.substring(0, 50)
+  });
+
+  if (!children) {
+    console.warn('Markdown received empty content');
+    return null;
+  }
+
+  if (typeof children !== 'string') {
+    console.error('Markdown received non-string content:', children);
+    return <div>Error: Invalid content type</div>;
+  }
+
   const components: Partial<Components> = {
     // @ts-expect-error
     code: ({ node, inline, className, children, ...props }) => {

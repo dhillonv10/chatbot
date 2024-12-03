@@ -33,9 +33,12 @@ export const PreviewMessage = ({
   console.log('Rendering PreviewMessage:', {
     id: message.id,
     role: message.role,
+    content: message.content,
+    contentType: typeof message.content,
     contentLength: message.content?.length,
     isLoading,
-    hasTools: !!message.toolInvocations?.length
+    hasTools: !!message.toolInvocations?.length,
+    messageKeys: Object.keys(message)
   });
 
   return (
@@ -57,10 +60,15 @@ export const PreviewMessage = ({
         )}
 
         <div className="flex flex-col gap-2 w-full">
-          {message.content && (
+          {message.content ? (
             <div className="flex flex-col gap-4">
+              <div className="debug-info" style={{display: 'none'}}>
+                Content before Markdown: {JSON.stringify(message.content)}
+              </div>
               <Markdown>{message.content as string}</Markdown>
             </div>
+          ) : (
+            <div className="text-muted-foreground">No content to display</div>
           )}
 
           {message.toolInvocations && message.toolInvocations.length > 0 && (

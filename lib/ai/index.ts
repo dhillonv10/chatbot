@@ -18,6 +18,10 @@ export const customModel = (apiIdentifier: string) => {
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<Response> {
       try {
+        console.log('Starting Anthropic API call with messages:', 
+          messages.map(m => ({ role: m.role, contentLength: m.content?.length }))
+        );
+
         const response = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
@@ -29,37 +33,62 @@ export const customModel = (apiIdentifier: string) => {
           stream: true,
         });
 
+        console.log('Anthropic API response received, setting up stream');
+
         // Create a transform stream to convert chunks to the format expected by useChat
         const stream = new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
             let counter = 0;
+            let fullContent = '';
 
             try {
+              console.log('Starting to process stream chunks');
+              
               for await (const chunk of response) {
+                console.log('Received chunk:', {
+                  type: chunk.type,
+                  hasText: chunk.type === 'content_block_delta' && !!chunk.delta?.text,
+                  textLength: chunk.type === 'content_block_delta' ? chunk.delta?.text?.length : 0
+                });
+
                 if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+                  const text = chunk.delta.text;
+                  fullContent += text;
+                  
                   const data = {
                     id: String(counter++),
                     role: 'assistant',
-                    content: chunk.delta.text,
+                    content: fullContent, // Send accumulated content
                     createdAt: new Date().toISOString()
                   };
                   
-                  // Format as SSE
-                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
+                  const sseMessage = `data: ${JSON.stringify(data)}\n\n`;
+                  console.log('Sending SSE message:', {
+                    messageId: data.id,
+                    contentLength: data.content.length,
+                    sseLength: sseMessage.length
+                  });
+                  
+                  controller.enqueue(encoder.encode(sseMessage));
                 }
               }
-              // Send the [DONE] event
+
+              console.log('Stream completed, sending DONE event');
               controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               controller.close();
             } catch (error) {
-              console.error('Stream processing error:', error);
+              console.error('Stream processing error:', {
+                name: error?.name,
+                message: error?.message,
+                stack: error?.stack,
+                fullContent
+              });
               controller.error(error);
             }
           }
         });
 
-        // Return the stream with proper headers
         return new Response(stream, {
           headers: {
             'Content-Type': 'text/event-stream',
@@ -69,9 +98,16 @@ export const customModel = (apiIdentifier: string) => {
         });
 
       } catch (error) {
-        console.error('Anthropic API Error:', error);
+        console.error('Anthropic API Error:', {
+          name: error?.name,
+          message: error?.message,
+          stack: error?.stack
+        });
         return new Response(
-          JSON.stringify({ error: 'Failed to generate response' }), 
+          JSON.stringify({ 
+            error: 'Failed to generate response',
+            details: error instanceof Error ? error.message : 'Unknown error'
+          }), 
           { 
             status: 500,
             headers: { 'Content-Type': 'application/json' }

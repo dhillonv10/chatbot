@@ -1,13 +1,12 @@
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
-import { StreamingTextResponse, experimental_StreamData } from 'ai';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
 }
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '', // Handle empty string case for Vercel env
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
 // Extend the LanguageModelV1 type to include the required model
@@ -30,10 +29,7 @@ export const customModel = (apiIdentifier: string) => {
           stream: true,
         });
 
-        // Create a new experimental stream data instance
-        const data = new experimental_StreamData();
-
-        // Convert the response into a friendly stream
+        // Create a transform stream to convert chunks to the format expected by useChat
         const stream = new ReadableStream({
           async start(controller) {
             const encoder = new TextEncoder();
@@ -41,20 +37,20 @@ export const customModel = (apiIdentifier: string) => {
 
             try {
               for await (const chunk of response) {
-                if (chunk.type === 'content_block_delta') {
-                  const text = chunk.delta?.text || '';
-                  if (text) {
-                    const message = {
-                      id: counter++,
-                      role: 'assistant',
-                      content: text,
-                      createdAt: new Date().toISOString()
-                    };
-                    
-                    controller.enqueue(encoder.encode(JSON.stringify(message) + '\n'));
-                  }
+                if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+                  const data = {
+                    id: String(counter++),
+                    role: 'assistant',
+                    content: chunk.delta.text,
+                    createdAt: new Date().toISOString()
+                  };
+                  
+                  // Format as SSE
+                  controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
                 }
               }
+              // Send the [DONE] event
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               controller.close();
             } catch (error) {
               console.error('Stream processing error:', error);
@@ -63,8 +59,14 @@ export const customModel = (apiIdentifier: string) => {
           }
         });
 
-        // Return the stream response
-        return new StreamingTextResponse(stream, {}, data);
+        // Return the stream with proper headers
+        return new Response(stream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
 
       } catch (error) {
         console.error('Anthropic API Error:', error);

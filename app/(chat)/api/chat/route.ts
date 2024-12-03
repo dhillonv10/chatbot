@@ -63,16 +63,17 @@ export async function POST(request: Request) {
     ],
   });
 
-  const stream = await customModel(model.apiIdentifier).invoke({
+  const response = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }
   });
 
-  return new Response(stream, {
+  return new Response(response, {
     headers: {
-      'Content-Type': 'text/plain; charset=utf-8',
-      'Transfer-Encoding': 'chunked',
-      'X-Content-Type-Options': 'nosniff',
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Transfer-Encoding': 'chunked'
     },
   });
 }

@@ -40,13 +40,9 @@ export function Chat({
     stop,
     data: streamingData,
   } = useChat({
-    api: '/api/chat',
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
-      if (!response.ok) {
-        throw new Error(`HTTP error! status: ${response.status}`);
-      }
       console.log('Chat response received:', response);
     },
     onFinish: (message) => {
@@ -55,23 +51,6 @@ export function Chat({
     },
     onError: (error) => {
       console.error('Chat error:', error);
-      // Handle the error gracefully
-      setMessages(prev => {
-        // Don't add error message if it's already the last message
-        const lastMessage = prev[prev.length - 1];
-        if (lastMessage?.role === 'assistant' && lastMessage.content.includes('error')) {
-          return prev;
-        }
-        return [
-          ...prev,
-          {
-            id: Date.now().toString(),
-            role: 'assistant',
-            content: 'I apologize, but I encountered an error. Please try again.',
-            createdAt: new Date()
-          }
-        ];
-      });
     }
   });
 

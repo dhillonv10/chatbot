@@ -56,14 +56,14 @@ export const customModel = (apiIdentifier: string) => {
                 console.log('Accumulated content so far:', content);
 
                 // Format according to Vercel AI SDK format
-                const chunk = JSON.stringify({
+                const formattedMessage = JSON.stringify({
                   id: Date.now().toString(),
                   role: 'assistant',
                   content,
                   createdAt: new Date().toISOString()
                 }) + '\n';
 
-                controller.enqueue(encoder.encode(chunk));
+                controller.enqueue(encoder.encode(formattedMessage));
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop chunk; closing stream.');
                 streamClosed = true;

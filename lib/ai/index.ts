@@ -55,21 +55,18 @@ export const customModel = (apiIdentifier: string) => {
                 content += chunk.delta.text;
                 console.log('Accumulated content so far:', content);
 
-                // Format according to Vercel AI SDK expectations
-                const aiMessage = {
-                  role: 'assistant',
-                  content,
+                // Send the chunk in the format expected by the Vercel AI SDK
+                const data = {
                   id: Date.now().toString(),
+                  role: 'assistant',
+                  content: content,
+                  createdAt: new Date().toISOString()
                 };
-
-                // Send as a JSON lines format
-                const line = JSON.stringify({ type: 'delta', delta: aiMessage });
-                controller.enqueue(encoder.encode(line + '\n'));
+                
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(data)}\n\n`));
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop chunk; closing stream.');
-                // Send the done message
-                const doneMessage = JSON.stringify({ type: 'done', completionId: Date.now().toString() });
-                controller.enqueue(encoder.encode(doneMessage + '\n'));
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 streamClosed = true;
                 controller.close();
               }

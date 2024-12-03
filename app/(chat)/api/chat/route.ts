@@ -68,12 +68,10 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  // Return the response stream directly
   return new Response(response, {
     headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache',
-      'Connection': 'keep-alive',
+      'Content-Type': 'application/json; charset=utf-8',
+      'Transfer-Encoding': 'chunked'
     },
   });
 }

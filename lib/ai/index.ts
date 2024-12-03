@@ -55,34 +55,23 @@ export const customModel = (apiIdentifier: string) => {
                 content += chunk.delta.text;
                 console.log('Accumulated content so far:', content);
 
-                // Format as a proper AI message
-                const message = {
+                // Format according to Vercel AI SDK format
+                const chunk = JSON.stringify({
                   id: Date.now().toString(),
                   role: 'assistant',
-                  content: content,
+                  content,
                   createdAt: new Date().toISOString()
-                };
+                }) + '\n';
 
-                // Send as SSE data
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+                controller.enqueue(encoder.encode(chunk));
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop chunk; closing stream.');
-                // Send final [DONE] event
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 streamClosed = true;
                 controller.close();
               }
             }
           } catch (error) {
             console.error('Stream processing error:', error);
-            // Send error as SSE data
-            const errorMessage = {
-              id: Date.now().toString(),
-              role: 'assistant',
-              content: 'An error occurred while processing the response.',
-              createdAt: new Date().toISOString()
-            };
-            controller.enqueue(encoder.encode(`data: ${JSON.stringify(errorMessage)}\n\n`));
             controller.error(error);
           }
         }

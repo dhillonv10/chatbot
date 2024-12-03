@@ -74,31 +74,35 @@ export function Chat({
     },
     api: {
       // Add custom parser for the stream
-      parseResponse: async (response) => {
+      parseResponse: async function* (response) {
         const reader = response.body?.getReader();
         if (!reader) throw new Error('No reader available');
         
         const decoder = new TextDecoder();
         let content = '';
         
-        while (true) {
-          const { done, value } = await reader.read();
-          if (done) break;
-          
-          const chunk = decoder.decode(value);
-          const lines = chunk.split('\n').filter(line => line.trim());
-          
-          for (const line of lines) {
-            try {
-              const json = JSON.parse(line);
-              if (json.type === 'delta') {
-                content = json.delta.content;
-                yield json.delta;
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value);
+            const lines = chunk.split('\n').filter(line => line.trim());
+            
+            for (const line of lines) {
+              try {
+                const json = JSON.parse(line);
+                if (json.type === 'delta') {
+                  content = json.delta.content;
+                  yield json.delta;
+                }
+              } catch (e) {
+                console.warn('Failed to parse line:', line, e);
               }
-            } catch (e) {
-              console.warn('Failed to parse line:', line, e);
             }
           }
+        } finally {
+          reader.releaseLock();
         }
       }
     }

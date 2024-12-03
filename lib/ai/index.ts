@@ -44,22 +44,6 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           console.log('Stream start called');
           try {
-            // Send the initial message structure
-            const initialMessage = {
-              id: Date.now().toString(),
-              role: 'assistant',
-              content: '',
-              createdAt: new Date(),
-            };
-
-            try {
-              controller.enqueue(encoder.encode(JSON.stringify(initialMessage) + '\n'));
-            } catch (err) {
-              console.error('Failed to enqueue initial message:', err);
-              controller.error(err);
-              return;
-            }
-
             let content = '';
             for await (const chunk of response) {
               if (streamClosed) {
@@ -73,33 +57,33 @@ export const customModel = (apiIdentifier: string) => {
                 content += chunk.delta.text;
                 console.log('Accumulated content so far:', content);
 
-                const deltaMessage = {
+                const message = {
                   id: Date.now().toString(),
                   role: 'assistant',
-                  content: chunk.delta.text,
+                  content: content,
                   createdAt: new Date(),
                 };
 
                 try {
-                  const deltaString = JSON.stringify(deltaMessage);
-                  controller.enqueue(encoder.encode(deltaString + '\n'));
+                  // Format as proper SSE data
+                  const sseData = `data: ${JSON.stringify(message)}\n\n`;
+                  controller.enqueue(encoder.encode(sseData));
                 } catch (err) {
-                  console.error('JSON Stringify Error:', err, deltaMessage);
+                  console.error('JSON Stringify Error:', err, message);
                   controller.error(err);
                 }
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop chunk; closing stream.');
+                const finalMessage = {
+                  id: Date.now().toString(),
+                  role: 'assistant',
+                  content,
+                  createdAt: new Date(),
+                };
+                const sseData = `data: ${JSON.stringify(finalMessage)}\n\n`;
+                controller.enqueue(encoder.encode(sseData));
                 streamClosed = true;
                 controller.close();
-              } else if (
-                chunk.type === 'content_block_start' ||
-                chunk.type === 'content_block_stop' ||
-                chunk.type === 'message_start' ||
-                chunk.type === 'message_delta'
-              ) {
-                console.log('Ignoring chunk type:', chunk.type);
-              } else {
-                console.warn('Unexpected chunk format:', JSON.stringify(chunk, null, 2));
               }
             }
 

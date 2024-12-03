@@ -1,4 +1,4 @@
-import { type Message, type MessageParam } from 'ai';
+import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
 
 if (!process.env.ANTHROPIC_API_KEY) {
@@ -22,7 +22,7 @@ export const customModel = (apiIdentifier: string) => {
         const formattedMessages = messages.map(msg => ({
           role: msg.role === 'user' ? 'user' : 'assistant',
           content: msg.content,
-        })) as MessageParam[];
+        }));
 
         console.log('Starting API call with messages:', formattedMessages);
 

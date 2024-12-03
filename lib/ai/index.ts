@@ -43,13 +43,12 @@ export const customModel = (apiIdentifier: string) => {
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
                 console.log('Accumulated content:', content);
-                const queue = encoder.encode('{"id":"message_1","role":"assistant","content":"');
-                controller.enqueue(queue);
+                // Send the text chunk directly without wrapping in JSON
                 controller.enqueue(encoder.encode(chunk.delta.text));
               }
             }
             console.log('Stream complete, final content:', content);
-            controller.enqueue(encoder.encode('"}'));
+            // Signal the end of the stream
             controller.close();
           } catch (error) {
             console.error('Stream error:', error);

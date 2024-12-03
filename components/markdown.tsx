@@ -1,11 +1,6 @@
 import React from 'react';
-import ReactMarkdown from 'react-markdown';
+import ReactMarkdown, { Components } from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-
-interface CodeProps {
-  className?: string;
-  children: React.ReactNode;
-}
 
 export function Markdown({ children }: { children: string }) {
   console.log('Rendering Markdown component:', {
@@ -19,34 +14,42 @@ export function Markdown({ children }: { children: string }) {
     return null;
   }
 
+  const components: Components = {
+    code({ inline, className, children }) {
+      const match = /language-(\w+)/.exec(className || '');
+      return !inline && match ? (
+        <pre className="overflow-x-auto rounded-lg bg-zinc-100 p-4 dark:bg-zinc-800">
+          <code className={className}>
+            {String(children).replace(/\n$/, '')}
+          </code>
+        </pre>
+      ) : (
+        <code className={className}>
+          {children}
+        </code>
+      );
+    },
+    p({ children }) {
+      return <p className="mb-4 last:mb-0">{children}</p>;
+    },
+    a({ href, children }) {
+      return (
+        <a
+          href={href}
+          className="text-blue-500 hover:underline"
+          target="_blank"
+          rel="noopener noreferrer"
+        >
+          {children}
+        </a>
+      );
+    }
+  };
+
   return (
     <ReactMarkdown
       remarkPlugins={[remarkGfm]}
-      components={{
-        code: ({ className, children }: CodeProps) => {
-          const language = className?.replace('language-', '');
-          return (
-            <pre className="overflow-x-auto rounded-lg bg-zinc-100 p-4 dark:bg-zinc-800">
-              <code className={language ? `language-${language}` : ''}>
-                {children}
-              </code>
-            </pre>
-          );
-        },
-        p: ({ children }) => (
-          <p className="mb-4 last:mb-0">{children}</p>
-        ),
-        a: ({ href, children }) => (
-          <a
-            href={href}
-            className="text-blue-500 hover:underline"
-            target="_blank"
-            rel="noopener noreferrer"
-          >
-            {children}
-          </a>
-        )
-      }}
+      components={components}
       className="prose dark:prose-invert"
     >
       {children}

@@ -202,6 +202,11 @@ export const ThinkingMessage = () => {
   );
 };
 
+import { type Message } from 'ai';
+import { cn } from '@/lib/utils';
+import { IconOpenAI, IconUser } from '@/components/ui/icons';
+import { Markdown } from './markdown';
+
 export interface ChatMessageProps {
   message: Message;
   isLoading?: boolean;
@@ -224,11 +229,12 @@ export function Message({ message, isLoading }: ChatMessageProps) {
   }
 
   return (
-    <div className="group relative mb-4 flex items-start md:-ml-12">
+    <div className={cn('group relative mb-4 flex items-start md:-ml-12')}>
       <div
-        className={`flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow ${
+        className={cn(
+          'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow',
           isUser ? 'bg-background' : 'bg-primary text-primary-foreground'
-        }`}
+        )}
       >
         {isUser ? <IconUser /> : <IconOpenAI />}
       </div>

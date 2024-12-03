@@ -39,8 +39,17 @@ export const customModel = (apiIdentifier: string) => {
         const responseStream = new ReadableStream({
           async start(controller) {
             for await (const messageStream of stream) {
-              if (messageStream.type === 'content_block_delta') {
-                controller.enqueue(messageStream.delta.text);
+              try {
+                if (messageStream.type === 'content_block_delta') {
+                  const text = messageStream.delta.text;
+                  if (text) {
+                    controller.enqueue(text);
+                  } else {
+                    console.warn('Received empty text delta');
+                  }
+                }
+              } catch (parseError) {
+                console.error('Error parsing stream message:', parseError);
               }
             }
             controller.close();

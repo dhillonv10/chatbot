@@ -1,6 +1,7 @@
 import {
   type Message,
   convertToCoreMessages,
+  StreamingTextResponse,
 } from 'ai';
 import { z } from 'zod';
 
@@ -68,12 +69,8 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  return new Response(response, {
-    headers: {
-      'Content-Type': 'application/json; charset=utf-8',
-      'Transfer-Encoding': 'chunked'
-    },
-  });
+  // Use Vercel's StreamingTextResponse
+  return new StreamingTextResponse(response);
 }
 
 export async function DELETE(request: Request) {

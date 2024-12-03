@@ -1,5 +1,6 @@
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
+import { experimental_StreamData, createStreamDataTransformer } from 'ai';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -20,65 +21,52 @@ export const customModel = (apiIdentifier: string) => {
       }));
 
       console.log('Starting API call with messages:', JSON.stringify(formattedMessages, null, 2));
-      let response;
 
       try {
-        response = await anthropic.messages.create({
+        const response = await anthropic.messages.create({
           model: apiIdentifier,
           messages: formattedMessages,
           system: options?.system,
           max_tokens: 4096,
           stream: true,
         });
+
+        console.log('Got response from Anthropic, creating stream');
+
+        // Create a TransformStream to handle the response
+        const data = new experimental_StreamData();
+        const stream = new ReadableStream({
+          async start(controller) {
+            try {
+              for await (const chunk of response) {
+                if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
+                  // Send the chunk as a UI message
+                  controller.enqueue(
+                    new TextEncoder().encode(
+                      JSON.stringify({
+                        id: Date.now().toString(),
+                        role: 'assistant',
+                        content: chunk.delta.text,
+                      }) + '\n'
+                    )
+                  );
+                }
+              }
+              // End the stream
+              controller.close();
+            } catch (error) {
+              console.error('Stream processing error:', error);
+              controller.error(error);
+            }
+          },
+        });
+
+        // Transform the stream using Vercel's utility
+        return stream.pipeThrough(createStreamDataTransformer(data));
       } catch (error) {
         console.error('Error during API call to Anthropic:', error);
         throw new Error('Failed to call Anthropic API');
       }
-
-      console.log('Got response from Anthropic, creating stream');
-
-      const encoder = new TextEncoder();
-      let streamClosed = false; // Track stream closure to avoid multiple close calls
-
-      const stream = new ReadableStream({
-        async start(controller) {
-          console.log('Stream start called');
-          try {
-            let content = '';
-            for await (const chunk of response) {
-              if (streamClosed) {
-                console.warn('Stream already closed. Ignoring chunk:', chunk);
-                continue;
-              }
-
-              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                content += chunk.delta.text;
-                console.log('Accumulated content so far:', content);
-
-                // Format according to SSE format
-                const formattedMessage = `data: ${JSON.stringify({
-                  id: Date.now().toString(),
-                  role: 'assistant',
-                  content,
-                  createdAt: new Date().toISOString()
-                })}\n\n`;
-
-                controller.enqueue(encoder.encode(formattedMessage));
-              } else if (chunk.type === 'message_stop') {
-                console.log('Received message_stop chunk; closing stream.');
-                streamClosed = true;
-                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                controller.close();
-              }
-            }
-          } catch (error) {
-            console.error('Stream processing error:', error);
-            controller.error(error);
-          }
-        }
-      });
-
-      return stream;
     },
   };
 };

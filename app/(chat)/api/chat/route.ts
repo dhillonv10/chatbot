@@ -68,15 +68,7 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  const encoder = new TextEncoder();
-  const transformStream = new TransformStream({
-    async transform(chunk, controller) {
-      const formattedChunk = `data: ${chunk}\n\n`;
-      controller.enqueue(encoder.encode(formattedChunk));
-    }
-  });
-
-  return new Response(response.pipeThrough(transformStream), {
+  return new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',

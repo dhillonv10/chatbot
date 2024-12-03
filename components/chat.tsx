@@ -55,15 +55,52 @@ export function Chat({
     onError: (error) => {
       console.error('Chat error:', error);
       // Handle the error gracefully
-      setMessages(prev => [
-        ...prev,
-        {
-          id: Date.now().toString(),
-          role: 'assistant',
-          content: 'I apologize, but I encountered an error. Please try again.',
-          createdAt: new Date()
+      setMessages(prev => {
+        // Don't add error message if it's already the last message
+        const lastMessage = prev[prev.length - 1];
+        if (lastMessage?.role === 'assistant' && lastMessage.content.includes('error')) {
+          return prev;
         }
-      ]);
+        return [
+          ...prev,
+          {
+            id: Date.now().toString(),
+            role: 'assistant',
+            content: 'I apologize, but I encountered an error. Please try again.',
+            createdAt: new Date()
+          }
+        ];
+      });
+    },
+    api: {
+      // Add custom parser for the stream
+      parseResponse: async (response) => {
+        const reader = response.body?.getReader();
+        if (!reader) throw new Error('No reader available');
+        
+        const decoder = new TextDecoder();
+        let content = '';
+        
+        while (true) {
+          const { done, value } = await reader.read();
+          if (done) break;
+          
+          const chunk = decoder.decode(value);
+          const lines = chunk.split('\n').filter(line => line.trim());
+          
+          for (const line of lines) {
+            try {
+              const json = JSON.parse(line);
+              if (json.type === 'delta') {
+                content = json.delta.content;
+                yield json.delta;
+              }
+            } catch (e) {
+              console.warn('Failed to parse line:', line, e);
+            }
+          }
+        }
+      }
     }
   });
 

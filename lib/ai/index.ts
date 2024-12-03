@@ -51,54 +51,32 @@ export const customModel = (apiIdentifier: string) => {
                 continue;
               }
 
-              console.log('Processing chunk:', JSON.stringify(chunk, null, 2));
-
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
                 console.log('Accumulated content so far:', content);
 
-                const message = {
-                  id: Date.now().toString(),
-                  role: 'assistant',
-                  content: content,
-                  createdAt: new Date(),
-                };
-
-                try {
-                  // Format as proper SSE data
-                  const sseData = `data: ${JSON.stringify(message)}\n\n`;
-                  controller.enqueue(encoder.encode(sseData));
-                } catch (err) {
-                  console.error('JSON Stringify Error:', err, message);
-                  controller.error(err);
-                }
-              } else if (chunk.type === 'message_stop') {
-                console.log('Received message_stop chunk; closing stream.');
-                const finalMessage = {
-                  id: Date.now().toString(),
+                // Format according to Vercel AI SDK expectations
+                const aiMessage = {
                   role: 'assistant',
                   content,
-                  createdAt: new Date(),
+                  id: Date.now().toString(),
                 };
-                const sseData = `data: ${JSON.stringify(finalMessage)}\n\n`;
-                controller.enqueue(encoder.encode(sseData));
+
+                // Send as a JSON lines format
+                const line = JSON.stringify({ type: 'delta', delta: aiMessage });
+                controller.enqueue(encoder.encode(line + '\n'));
+              } else if (chunk.type === 'message_stop') {
+                console.log('Received message_stop chunk; closing stream.');
+                // Send the done message
+                const doneMessage = JSON.stringify({ type: 'done', completionId: Date.now().toString() });
+                controller.enqueue(encoder.encode(doneMessage + '\n'));
                 streamClosed = true;
                 controller.close();
               }
             }
-
-            if (!streamClosed) {
-              console.log('Stream complete without explicit stop. Closing stream.');
-              streamClosed = true;
-              controller.close();
-            }
-
-            console.log('Final accumulated content:', content);
           } catch (error) {
-            console.error('Error during streaming:', error);
-            if (!streamClosed) {
-              controller.error(error);
-            }
+            console.error('Stream processing error:', error);
+            controller.error(error);
           }
         },
       });

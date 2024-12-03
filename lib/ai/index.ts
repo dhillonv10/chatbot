@@ -38,21 +38,28 @@ export const customModel = (apiIdentifier: string) => {
         // Create a ReadableStream for the Anthropic stream
         const responseStream = new ReadableStream({
           async start(controller) {
-            for await (const messageStream of stream) {
-              try {
+            try {
+              for await (const messageStream of stream) {
                 if (messageStream.type === 'content_block_delta') {
-                  const text = messageStream.delta.text;
-                  if (text) {
-                    controller.enqueue(text);
-                  } else {
-                    console.warn('Received empty text delta');
-                  }
+                  const chunk = {
+                    id: messageStream.index,
+                    role: 'assistant',
+                    content: messageStream.delta.text,
+                    createdAt: new Date(),
+                  };
+                  
+                  // Format as SSE
+                  const data = `data: ${JSON.stringify(chunk)}\n\n`;
+                  controller.enqueue(new TextEncoder().encode(data));
                 }
-              } catch (parseError) {
-                console.error('Error parsing stream message:', parseError);
               }
+              // Send final chunk
+              controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
+              controller.close();
+            } catch (error) {
+              console.error('Streaming error:', error);
+              controller.error(error);
             }
-            controller.close();
           },
           cancel() {
             // Handle stream cancellation if needed

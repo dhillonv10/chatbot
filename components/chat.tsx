@@ -43,6 +43,9 @@ export function Chat({
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
+      if (!response.ok) {
+        throw new Error(`HTTP error! status: ${response.status}`);
+      }
       console.log('Chat response received:', response);
     },
     onFinish: (message) => {
@@ -51,6 +54,16 @@ export function Chat({
     },
     onError: (error) => {
       console.error('Chat error:', error);
+      // Handle the error gracefully
+      setMessages(prev => [
+        ...prev,
+        {
+          id: Date.now().toString(),
+          role: 'assistant',
+          content: 'I apologize, but I encountered an error. Please try again.',
+          createdAt: new Date()
+        }
+      ]);
     }
   });
 

@@ -68,12 +68,19 @@ export async function POST(request: Request) {
     options: { system: systemPrompt }
   });
 
-  return new Response(response, {
+  const encoder = new TextEncoder();
+  const transformStream = new TransformStream({
+    async transform(chunk, controller) {
+      const formattedChunk = `data: ${chunk}\n\n`;
+      controller.enqueue(encoder.encode(formattedChunk));
+    }
+  });
+
+  return new Response(response.pipeThrough(transformStream), {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache',
       'Connection': 'keep-alive',
-      'Transfer-Encoding': 'chunked'
     },
   });
 }

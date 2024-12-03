@@ -38,6 +38,8 @@ export const customModel = (apiIdentifier: string) => {
       console.log('Got response from Anthropic, creating stream');
 
       const encoder = new TextEncoder();
+      let streamClosed = false; // Track stream closure to avoid multiple close calls
+
       const stream = new ReadableStream({
         async start(controller) {
           console.log('Stream start called');
@@ -53,6 +55,11 @@ export const customModel = (apiIdentifier: string) => {
 
             let content = '';
             for await (const chunk of response) {
+              if (streamClosed) {
+                console.warn('Stream already closed. Ignoring chunk:', chunk);
+                continue;
+              }
+
               console.log('Processing chunk:', JSON.stringify(chunk, null, 2));
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
@@ -74,21 +81,28 @@ export const customModel = (apiIdentifier: string) => {
                   controller.error(err);
                 }
               } else if (chunk.type === 'message_stop') {
-                console.log('Received message_stop chunk; signaling stream end.');
+                console.log('Received message_stop chunk; closing stream.');
+                streamClosed = true;
                 controller.close();
-                break;
-              } else if (chunk.type === 'content_block_start' || chunk.type === 'message_start') {
-                console.log('Received chunk type to be ignored:', chunk.type);
+              } else if (chunk.type === 'content_block_start' || chunk.type === 'content_block_stop') {
+                console.log('Ignoring chunk type:', chunk.type);
               } else {
                 console.warn('Unexpected chunk format:', JSON.stringify(chunk, null, 2));
               }
             }
 
-            console.log('Stream complete, final content:', content);
-            controller.close();
+            if (!streamClosed) {
+              console.log('Stream complete without explicit stop. Closing stream.');
+              streamClosed = true;
+              controller.close();
+            }
+
+            console.log('Final accumulated content:', content);
           } catch (error) {
             console.error('Error during streaming:', error);
-            controller.error(error);
+            if (!streamClosed) {
+              controller.error(error);
+            }
           }
         },
       });

@@ -14,7 +14,6 @@ export const customModel = (apiIdentifier: string) => {
     id: apiIdentifier,
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
-      // Format messages with explicit type literals
       const formattedMessages = messages.map((msg) => ({
         role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
         content: msg.content,
@@ -38,13 +37,11 @@ export const customModel = (apiIdentifier: string) => {
 
       console.log('Got response from Anthropic, creating stream');
 
-      // Convert to a ReadableStream
       const encoder = new TextEncoder();
       const stream = new ReadableStream({
         async start(controller) {
           console.log('Stream start called');
           try {
-            // Send the initial message structure
             const initialMessage = {
               id: Date.now().toString(),
               role: 'assistant',
@@ -58,11 +55,10 @@ export const customModel = (apiIdentifier: string) => {
             for await (const chunk of response) {
               console.log('Processing chunk:', JSON.stringify(chunk, null, 2));
 
-              if (chunk && chunk.type === 'content_block_delta' && chunk.delta?.text) {
+              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
                 console.log('Accumulated content so far:', content);
 
-                // Send a delta update
                 const deltaMessage = {
                   id: Date.now().toString(),
                   role: 'assistant',
@@ -77,10 +73,17 @@ export const customModel = (apiIdentifier: string) => {
                   console.error('JSON Stringify Error:', err, deltaMessage);
                   controller.error(err);
                 }
+              } else if (chunk.type === 'message_stop') {
+                console.log('Received message_stop chunk; signaling stream end.');
+                controller.close();
+                break;
+              } else if (chunk.type === 'content_block_start' || chunk.type === 'message_start') {
+                console.log('Received chunk type to be ignored:', chunk.type);
               } else {
-                console.warn('Unexpected chunk format:', chunk);
+                console.warn('Unexpected chunk format:', JSON.stringify(chunk, null, 2));
               }
             }
+
             console.log('Stream complete, final content:', content);
             controller.close();
           } catch (error) {

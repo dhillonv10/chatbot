@@ -18,62 +18,45 @@ export const customModel = (apiIdentifier: string) => {
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<Response> {
       try {
-        // Format messages to match the expected structure
-        const formattedMessages = messages.map(msg => ({
-          role: msg.role as 'user' | 'assistant',
-          content: msg.content,
-        }));
-
-        console.log('Starting API call with messages:', formattedMessages);
-
-        // Use Anthropic's native streaming method
         const stream = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
-          messages: formattedMessages,
+          messages: messages.map(m => ({
+            role: m.role === 'user' ? 'user' : 'assistant',
+            content: m.content
+          })),
           system: options?.system,
           stream: true,
         });
 
-        // Create a ReadableStream for the Anthropic stream
-        const responseStream = new ReadableStream({
-          async start(controller) {
-            try {
-              for await (const messageStream of stream) {
-                if (messageStream.type === 'content_block_delta') {
-                  const chunk = {
-                    id: messageStream.index,
-                    role: 'assistant',
-                    content: messageStream.delta.text,
-                    createdAt: new Date(),
-                  };
-                  
-                  // Format as SSE
-                  const data = `data: ${JSON.stringify(chunk)}\n\n`;
-                  controller.enqueue(new TextEncoder().encode(data));
-                }
-              }
-              // Send final chunk
-              controller.enqueue(new TextEncoder().encode('data: [DONE]\n\n'));
-              controller.close();
-            } catch (error) {
-              console.error('Streaming error:', error);
-              controller.error(error);
+        const textEncoder = new TextEncoder();
+        let counter = 0;
+
+        const transformStream = new TransformStream({
+          async transform(chunk, controller) {
+            if (chunk.type === 'content_block_delta' && chunk.delta.text) {
+              const payload = {
+                id: String(counter++),
+                role: 'assistant',
+                content: chunk.delta.text,
+                createdAt: new Date().toISOString()
+              };
+              controller.enqueue(textEncoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
             }
           },
-          cancel() {
-            // Handle stream cancellation if needed
+          flush(controller) {
+            controller.enqueue(textEncoder.encode('data: [DONE]\n\n'));
           }
         });
 
-        // Return a streaming text response
-        return new Response(responseStream, {
+        return new Response((stream as any).pipeThrough(transformStream), {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',
             'Connection': 'keep-alive',
           },
         });
+
       } catch (error) {
         console.error('Claude API invocation error:', error);
         return new Response(JSON.stringify({ error: 'Failed to generate response' }), {

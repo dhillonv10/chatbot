@@ -1,5 +1,6 @@
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
+import { StreamingTextResponse, experimental_StreamData } from 'ai';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -18,7 +19,7 @@ export const customModel = (apiIdentifier: string) => {
     provider: 'anthropic' as const,
     async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }): Promise<Response> {
       try {
-        const stream = await anthropic.messages.create({
+        const response = await anthropic.messages.create({
           model: 'claude-3-5-sonnet-20241022',
           max_tokens: 4096,
           messages: messages.map(m => ({
@@ -29,40 +30,51 @@ export const customModel = (apiIdentifier: string) => {
           stream: true,
         });
 
-        const textEncoder = new TextEncoder();
-        let counter = 0;
+        // Create a new experimental stream data instance
+        const data = new experimental_StreamData();
 
-        const transformStream = new TransformStream({
-          async transform(chunk, controller) {
-            if (chunk.type === 'content_block_delta' && chunk.delta.text) {
-              const payload = {
-                id: String(counter++),
-                role: 'assistant',
-                content: chunk.delta.text,
-                createdAt: new Date().toISOString()
-              };
-              controller.enqueue(textEncoder.encode(`data: ${JSON.stringify(payload)}\n\n`));
+        // Convert the response into a friendly stream
+        const stream = new ReadableStream({
+          async start(controller) {
+            const encoder = new TextEncoder();
+            let counter = 0;
+
+            try {
+              for await (const chunk of response) {
+                if (chunk.type === 'content_block_delta') {
+                  const text = chunk.delta?.text || '';
+                  if (text) {
+                    const message = {
+                      id: counter++,
+                      role: 'assistant',
+                      content: text,
+                      createdAt: new Date().toISOString()
+                    };
+                    
+                    controller.enqueue(encoder.encode(JSON.stringify(message) + '\n'));
+                  }
+                }
+              }
+              controller.close();
+            } catch (error) {
+              console.error('Stream processing error:', error);
+              controller.error(error);
             }
-          },
-          flush(controller) {
-            controller.enqueue(textEncoder.encode('data: [DONE]\n\n'));
           }
         });
 
-        return new Response((stream as any).pipeThrough(transformStream), {
-          headers: {
-            'Content-Type': 'text/event-stream',
-            'Cache-Control': 'no-cache',
-            'Connection': 'keep-alive',
-          },
-        });
+        // Return the stream response
+        return new StreamingTextResponse(stream, {}, data);
 
       } catch (error) {
-        console.error('Claude API invocation error:', error);
-        return new Response(JSON.stringify({ error: 'Failed to generate response' }), {
-          status: 500,
-          headers: { 'Content-Type': 'application/json' }
-        });
+        console.error('Anthropic API Error:', error);
+        return new Response(
+          JSON.stringify({ error: 'Failed to generate response' }), 
+          { 
+            status: 500,
+            headers: { 'Content-Type': 'application/json' }
+          }
+        );
       }
     },
   };

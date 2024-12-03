@@ -1,6 +1,6 @@
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
-import { OpenAIStream, StreamingTextResponse } from 'ai';
+import { OpenAIStream } from 'ai';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -44,7 +44,13 @@ export const customModel = (apiIdentifier: string) => {
         });
 
         // Return a streaming text response
-        return new StreamingTextResponse(aiStream);
+        return new Response(aiStream, {
+          headers: {
+            'Content-Type': 'text/event-stream',
+            'Cache-Control': 'no-cache',
+            'Connection': 'keep-alive',
+          },
+        });
       } catch (error) {
         console.error('Claude API invocation error:', error);
         return new Response(JSON.stringify({ error: 'Failed to generate response' }), {

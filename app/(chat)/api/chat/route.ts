@@ -1,4 +1,7 @@
-import { convertToCoreMessages } from 'ai';
+import {
+  type Message,
+  convertToCoreMessages,
+} from 'ai';
 import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
@@ -20,20 +23,13 @@ import { generateTitleFromUserMessage } from '../../actions';
 
 export const maxDuration = 60;
 
-// Renamed Local Message type to avoid conflict
-type LocalMessage = {
-  id: string;
-  role: 'user' | 'assistant';
-  content: string;
-  createdAt?: Date;
-};
-
 export async function POST(request: Request) {
   const {
     id,
     messages,
     modelId,
-  }: { id: string; messages: Array<LocalMessage>; modelId: string } = await request.json();
+  }: { id: string; messages: Array<Message>; modelId: string } =
+    await request.json();
 
   const session = await auth();
 
@@ -69,22 +65,17 @@ export async function POST(request: Request) {
 
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
-    options: { system: systemPrompt },
+    options: { system: systemPrompt }
   });
 
-  if (response.body) {
-    return new Response(response.body, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-        'X-Accel-Buffering': 'no',
-        'Content-Encoding': 'none',
-      },
-    });
-  }
-
-  return new Response('Failed to generate response', { status: 500 });
+  return new Response(response, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache',
+      'Connection': 'keep-alive',
+      'Transfer-Encoding': 'chunked'
+    },
+  });
 }
 
 export async function DELETE(request: Request) {

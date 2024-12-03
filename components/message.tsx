@@ -1,3 +1,5 @@
+'use client';
+
 import type { Message } from 'ai';
 import cx from 'classnames';
 import { motion } from 'framer-motion';
@@ -28,25 +30,6 @@ export const PreviewMessage = ({
   vote: Vote | undefined;
   isLoading: boolean;
 }) => {
-  console.log('Rendering PreviewMessage:', {
-    id: message.id,
-    role: message.role,
-    content: message.content,
-    contentType: typeof message.content,
-    contentLength: message.content?.length,
-    isLoading,
-    hasTools: !!message.toolInvocations?.length,
-    messageKeys: Object.keys(message)
-  });
-
-  const { role, content } = message;
-  const isUser = role === 'user';
-
-  if (!content || typeof content !== 'string') {
-    console.warn('Invalid message content:', { content, type: typeof content });
-    return null;
-  }
-
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"
@@ -66,12 +49,11 @@ export const PreviewMessage = ({
         )}
 
         <div className="flex flex-col gap-2 w-full">
-          <div className="flex flex-col gap-4">
-            <div className="debug-info" style={{display: 'none'}}>
-              Content before Markdown: {JSON.stringify(message.content)}
+          {message.content && (
+            <div className="flex flex-col gap-4">
+              <Markdown>{message.content as string}</Markdown>
             </div>
-            <Markdown>{message.content as string}</Markdown>
-          </div>
+          )}
 
           {message.toolInvocations && message.toolInvocations.length > 0 && (
             <div className="flex flex-col gap-4">
@@ -201,71 +183,3 @@ export const ThinkingMessage = () => {
     </motion.div>
   );
 };
-
-import { type Message } from 'ai';
-import { cn } from '@/lib/utils';
-import { IconOpenAI, IconUser } from '@/components/ui/icons';
-import { Markdown } from './markdown';
-
-export interface ChatMessageProps {
-  message: Message;
-  isLoading?: boolean;
-}
-
-export function Message({ message, isLoading }: ChatMessageProps) {
-  const { role, content } = message;
-  const isUser = role === 'user';
-
-  console.log('Message component rendering:', {
-    role,
-    contentType: typeof content,
-    contentLength: content?.length,
-    isLoading
-  });
-
-  if (!content || typeof content !== 'string') {
-    console.warn('Invalid message content:', { content, type: typeof content });
-    return null;
-  }
-
-  return (
-    <div className={cn('group relative mb-4 flex items-start md:-ml-12')}>
-      <div
-        className={cn(
-          'flex h-8 w-8 shrink-0 select-none items-center justify-center rounded-md border shadow',
-          isUser ? 'bg-background' : 'bg-primary text-primary-foreground'
-        )}
-      >
-        {isUser ? <IconUser /> : <IconOpenAI />}
-      </div>
-      <div className="ml-4 flex-1 space-y-2 overflow-hidden px-1">
-        <div className="prose break-words dark:prose-invert">
-          <Markdown>{content}</Markdown>
-        </div>
-        {message.toolInvocations?.length > 0 && (
-          <div className="mt-4 flex flex-col gap-2">
-            {message.toolInvocations.map((tool) => (
-              <div
-                key={tool.toolCallId}
-                className="rounded-lg border bg-muted/50 p-4 text-sm"
-              >
-                <div className="font-medium">Tool: {tool.toolName}</div>
-                <div className="mt-1 font-mono text-xs">
-                  {JSON.stringify(tool.args, null, 2)}
-                </div>
-                {tool.state === 'result' && (
-                  <div className="mt-2">
-                    <div className="font-medium text-muted-foreground">Result:</div>
-                    <div className="mt-1 font-mono text-xs">
-                      {JSON.stringify(tool.result, null, 2)}
-                    </div>
-                  </div>
-                )}
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
-    </div>
-  );
-}

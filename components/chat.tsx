@@ -43,56 +43,19 @@ export function Chat({
     body: { id, modelId: selectedModelId },
     initialMessages,
     onResponse: (response) => {
-      console.log('Chat response received:', {
-        status: response.status,
-        statusText: response.statusText,
-        headers: Object.fromEntries(response.headers.entries())
-      });
+      console.log('Chat response received:', response);
     },
     onFinish: (message) => {
-      console.log('Chat finished:', {
-        id: message.id,
-        role: message.role,
-        contentLength: message.content?.length,
-        hasTools: !!message.toolInvocations?.length
-      });
+      console.log('Chat finished:', message);
       mutate('/api/history');
     },
     onError: (error) => {
-      if (error instanceof Error) {
-        console.error('Chat error:', {
-          name: error.name,
-          message: error.message,
-          cause: error.cause,
-          stack: error.stack
-        });
-      } else {
-        console.error('Unknown chat error:', error);
-      }
+      console.error('Chat error:', error);
     }
   });
 
   useEffect(() => {
-    if (streamingData) {
-      console.log('Streaming data updated:', {
-        chunks: streamingData.length,
-        lastChunk: streamingData[streamingData.length - 1],
-        allChunks: streamingData,
-        chunkTypes: streamingData.map(chunk => typeof chunk)
-      });
-    }
-  }, [streamingData]);
-
-  useEffect(() => {
-    console.log('Messages updated:', messages.map(msg => ({
-      id: msg.id,
-      role: msg.role,
-      content: msg.content,
-      contentType: typeof msg.content,
-      contentLength: msg.content?.length,
-      hasTools: !!msg.toolInvocations?.length,
-      keys: Object.keys(msg)
-    })));
+    console.log('Messages updated:', messages);
   }, [messages]);
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =

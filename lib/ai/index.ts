@@ -1,6 +1,5 @@
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
-import { OpenAIStream } from 'ai';
 
 if (!process.env.ANTHROPIC_API_KEY) {
   throw new Error('Missing ANTHROPIC_API_KEY environment variable');
@@ -36,15 +35,23 @@ export const customModel = (apiIdentifier: string) => {
           stream: true,
         });
 
-        // Convert the Anthropic stream to an AI stream compatible with Vercel AI SDK
-        const aiStream = OpenAIStream(stream as any, {
-          onError: (error) => {
-            console.error('Streaming error:', error);
+        // Create a ReadableStream for the Anthropic stream
+        const responseStream = new ReadableStream({
+          async start(controller) {
+            for await (const messageStream of stream) {
+              if (messageStream.type === 'content_block_delta') {
+                controller.enqueue(messageStream.delta.text);
+              }
+            }
+            controller.close();
+          },
+          cancel() {
+            // Handle stream cancellation if needed
           }
         });
 
         // Return a streaming text response
-        return new Response(aiStream, {
+        return new Response(responseStream, {
           headers: {
             'Content-Type': 'text/event-stream',
             'Cache-Control': 'no-cache',

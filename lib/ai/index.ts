@@ -44,6 +44,7 @@ export const customModel = (apiIdentifier: string) => {
         async start(controller) {
           console.log('Stream start called');
           try {
+            // Send the initial message structure
             const initialMessage = {
               id: Date.now().toString(),
               role: 'assistant',
@@ -51,7 +52,13 @@ export const customModel = (apiIdentifier: string) => {
               createdAt: new Date(),
             };
 
-            controller.enqueue(encoder.encode(JSON.stringify(initialMessage) + '\n'));
+            try {
+              controller.enqueue(encoder.encode(JSON.stringify(initialMessage) + '\n'));
+            } catch (err) {
+              console.error('Failed to enqueue initial message:', err);
+              controller.error(err);
+              return;
+            }
 
             let content = '';
             for await (const chunk of response) {
@@ -84,7 +91,12 @@ export const customModel = (apiIdentifier: string) => {
                 console.log('Received message_stop chunk; closing stream.');
                 streamClosed = true;
                 controller.close();
-              } else if (chunk.type === 'content_block_start' || chunk.type === 'content_block_stop') {
+              } else if (
+                chunk.type === 'content_block_start' ||
+                chunk.type === 'content_block_stop' ||
+                chunk.type === 'message_start' ||
+                chunk.type === 'message_delta'
+              ) {
                 console.log('Ignoring chunk type:', chunk.type);
               } else {
                 console.warn('Unexpected chunk format:', JSON.stringify(chunk, null, 2));

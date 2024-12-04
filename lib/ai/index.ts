@@ -33,14 +33,16 @@ function inspectSSE(data: string) {
     if (data.includes('[DONE]')) return true;
     if (!data.startsWith('data: ')) return false;
     
-    // Extract JSON part, handling both \n\n and \r\n\r\n endings
-    const jsonMatch = data.match(/^data:\s*({.+?})\r?\n\r?\n/);
-    if (!jsonMatch) {
-      console.error('Invalid SSE format:', data);
+    // Extract JSON part, being more lenient with the ending
+    const jsonStart = data.indexOf('{');
+    const jsonEnd = data.lastIndexOf('}');
+    
+    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
+      console.error('Invalid JSON boundaries in SSE data');
       return false;
     }
     
-    const jsonStr = jsonMatch[1];
+    const jsonStr = data.slice(jsonStart, jsonEnd + 1);
     const parsed = JSON.parse(jsonStr);
     
     if (!validateChunkData(parsed)) {
@@ -124,17 +126,25 @@ export const customModel = (apiIdentifier: string) => {
                     createdAt: new Date().toISOString()
                   };
 
-                  if (!validateChunkData(chunkData)) {
-                    console.error('Invalid chunk data:', chunkData);
-                    continue;
-                  }
+                  // Stringify with proper escaping of special characters
+                  const payload = JSON.stringify(chunkData, (_, value) => {
+                    if (typeof value === 'string') {
+                      return value.replace(/\n/g, '\\n')
+                                .replace(/\r/g, '\\r')
+                                .replace(/\t/g, '\\t');
+                    }
+                    return value;
+                  });
 
-                  const payload = JSON.stringify(chunkData);
-                  // Ensure consistent line endings in SSE format
+                  // Ensure proper SSE format with consistent line endings
                   const sseData = `data: ${payload}\n\n`;
                   
                   if (!inspectSSE(sseData)) {
-                    console.error('SSE validation failed:', sseData);
+                    console.error('SSE validation failed:', {
+                      sseData,
+                      payload,
+                      chunkData
+                    });
                     continue;
                   }
                   
@@ -142,7 +152,8 @@ export const customModel = (apiIdentifier: string) => {
                 } catch (error: unknown) {
                   console.error('Chunk processing error:', {
                     error: error instanceof Error ? error.message : String(error),
-                    chunk: chunk.delta.text
+                    chunk: chunk.delta.text,
+                    fullContent
                   });
                   continue;
                 }

@@ -43,7 +43,6 @@ export function Chat({
     api: '/api/chat',
     body: { id, modelId: selectedModelId },
     initialMessages,
-    experimental_onFunctionCall: () => Promise.resolve(""),
     onResponse: (response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);

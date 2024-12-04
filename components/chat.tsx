@@ -48,9 +48,8 @@ export function Chat({
         throw new Error(`HTTP error! status: ${response.status}`);
       }
 
-      // Clone the response so we can read it without interfering with useChat
-      const clonedResponse = response.clone();
-      const reader = clonedResponse.body?.getReader();
+      // Set up custom stream parsing
+      const reader = response.body?.getReader();
       if (!reader) {
         console.error('No reader available');
         return;

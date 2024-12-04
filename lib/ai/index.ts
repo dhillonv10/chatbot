@@ -27,11 +27,18 @@ function validateChunkData(data: unknown): boolean {
   });
 }
 
-function createChunk(messageId: string, content: string) {
+interface AIStreamChunk {
+  id: string;
+  role: 'assistant';
+  content: string;
+  createdAt: string;
+}
+
+function createChunk(messageId: string, content: string): AIStreamChunk {
   return {
     id: messageId,
-    role: 'assistant' as const,
-    content: content.replace(/\n/g, '\\n'),  // Escape newlines in content
+    role: 'assistant',
+    content: content.replace(/\r\n/g, '\n'),  // Just normalize line endings
     createdAt: new Date().toISOString()
   };
 }
@@ -130,36 +137,28 @@ export const customModel = (apiIdentifier: string) => {
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 try {
-                  // Normalize text without complex escaping
-                  const newText = chunk.delta.text
-                    .replace(/\r\n/g, '\n')
-                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
-                  
+                  // Only normalize line endings, don't escape anything
+                  const newText = chunk.delta.text.replace(/\r\n/g, '\n');
                   fullContent += newText;
+                  
                   const chunkData = createChunk(messageId, fullContent);
                   const payload = JSON.stringify(chunkData);
                   
-                  // Use a single newline for SSE format
-                  const message = `data: ${payload}\n`;
-                  controller.enqueue(encoder.encode(message));
-                } catch (error: unknown) {
-                  console.error('Chunk processing error:', {
-                    error: error instanceof Error ? error.message : String(error),
-                    chunk: chunk.delta.text,
-                    fullContent
-                  });
+                  // Use double newlines as per SSE spec
+                  controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
+                } catch (error) {
+                  console.error('Chunk processing error:', error);
                   continue;
                 }
               } else if (chunk.type === 'message_stop') {
-                console.log('Received message_stop, sending DONE');
-                // Send DONE message with single newline
-                controller.enqueue(encoder.encode('data: [DONE]\n'));
+                // Use double newlines for DONE message too
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 controller.close();
                 console.log('Stream closed');
                 break;
               }
             }
-          } catch (error: unknown) {
+          } catch (error) {
             console.error('=== Stream error ===');
             console.error('Error details:', error);
             if (error instanceof Error) {

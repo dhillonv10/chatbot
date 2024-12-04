@@ -48,25 +48,24 @@ export const customModel = (apiIdentifier: string) => {
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 fullContent += chunk.delta.text;
                 
-                // Format exactly as Vercel AI SDK expects
-                const aiMessage = {
+                // Create the chunk data in Vercel AI SDK format
+                const chunkData = {
                   id: messageId,
-                  role: 'assistant' as const,
+                  role: 'assistant',
                   content: fullContent,
-                  createdAt: new Date(),
+                  createdAt: new Date().toISOString(),
                 };
 
-                controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(aiMessage)}\n\n`)
-                );
+                // Send in the exact format expected by Vercel AI SDK
+                const payload = JSON.stringify(chunkData);
+                controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
               } else if (chunk.type === 'message_stop') {
-                controller.enqueue(
-                  encoder.encode('data: [DONE]\n\n')
-                );
+                // Send the final DONE message in the exact format expected
+                controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                controller.close();
                 break;
               }
             }
-            controller.close();
           } catch (error) {
             console.error('Stream error:', error);
             controller.error(error);

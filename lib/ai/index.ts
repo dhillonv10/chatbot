@@ -13,16 +13,29 @@ const anthropic = new Anthropic({
 function inspectSSE(data: string) {
   console.log('=== SSE Inspection ===');
   console.log('Raw data length:', data.length);
-  console.log('Raw data:', data);
-  console.log('Hex representation:', Buffer.from(data).toString('hex'));
-  console.log('Has correct newlines:', data.endsWith('\n\n'));
+  
+  // Sanitize the data before processing
+  const sanitizedData = data.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  
+  console.log('Sanitized data:', sanitizedData);
+  console.log('Has correct newlines:', sanitizedData.endsWith('\n\n'));
+  
   try {
-    const jsonPart = data.replace('data: ', '').trim();
+    // Remove the SSE prefix and any extra whitespace
+    const jsonPart = sanitizedData.replace(/^data:\s*/, '').trim();
+    // Handle the [DONE] message specially
+    if (jsonPart === '[DONE]') {
+      return true;
+    }
     const parsed = JSON.parse(jsonPart);
     console.log('Successfully parsed JSON:', parsed);
     return true;
   } catch (e) {
     console.error('Failed to parse JSON:', e);
+    console.error('Error details:', {
+      message: e.message,
+      data: sanitizedData
+    });
     return false;
   }
 }
@@ -83,21 +96,30 @@ export const customModel = (apiIdentifier: string) => {
                 const chunkData = {
                   id: messageId,
                   role: 'assistant',
-                  content: fullContent,
+                  content: fullContent.trim(), // Trim the content
                   createdAt: new Date().toISOString(),
                 };
 
                 console.log('Created chunk data:', chunkData);
                 
-                const payload = JSON.stringify(chunkData);
-                const sseData = `data: ${payload}\n\n`;
-                
-                console.log('Preparing to send SSE data:');
-                const isValid = inspectSSE(sseData);
-                console.log('SSE data is valid:', isValid);
-
-                controller.enqueue(encoder.encode(sseData));
-                console.log('Enqueued chunk');
+                try {
+                  const payload = JSON.stringify(chunkData);
+                  const sseData = `data: ${payload}\n\n`;
+                  
+                  console.log('Preparing to send SSE data:');
+                  const isValid = inspectSSE(sseData);
+                  
+                  if (!isValid) {
+                    console.error('Invalid SSE data detected, skipping chunk');
+                    continue;
+                  }
+                  
+                  controller.enqueue(encoder.encode(sseData));
+                  console.log('Enqueued chunk');
+                } catch (error) {
+                  console.error('Error processing chunk:', error);
+                  continue;
+                }
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop, sending DONE');
                 const doneMessage = 'data: [DONE]\n\n';

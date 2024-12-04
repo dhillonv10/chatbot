@@ -30,10 +30,10 @@ function inspectSSE(data: string) {
     const parsed = JSON.parse(jsonPart);
     console.log('Successfully parsed JSON:', parsed);
     return true;
-  } catch (e) {
+  } catch (e: unknown) {
     console.error('Failed to parse JSON:', e);
     console.error('Error details:', {
-      message: e.message,
+      message: e instanceof Error ? e.message : String(e),
       data: sanitizedData
     });
     return false;

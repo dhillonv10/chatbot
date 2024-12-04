@@ -39,19 +39,25 @@ export const customModel = (apiIdentifier: string) => {
       const stream = new ReadableStream({
         async start(controller) {
           try {
+            let fullContent = '';
+            const messageId = crypto.randomUUID();
+
             for await (const chunk of response) {
               if (streamClosed) break;
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                const data = {
-                  id: crypto.randomUUID(),
-                  role: 'assistant',
-                  content: chunk.delta.text,
+                fullContent += chunk.delta.text;
+                
+                // Format exactly as Vercel AI SDK expects
+                const aiMessage = {
+                  id: messageId,
+                  role: 'assistant' as const,
+                  content: fullContent,
                   createdAt: new Date(),
                 };
 
                 controller.enqueue(
-                  encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+                  encoder.encode(`data: ${JSON.stringify(aiMessage)}\n\n`)
                 );
               } else if (chunk.type === 'message_stop') {
                 controller.enqueue(

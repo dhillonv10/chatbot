@@ -50,12 +50,13 @@ export function Chat({
 
       // Set up custom stream parsing
       const reader = response.body?.getReader();
-      const decoder = new TextDecoder();
-      let buffer = '';
-
       if (!reader) {
         console.error('No reader available');
+        return;
       }
+
+      const decoder = new TextDecoder();
+      let buffer = '';
 
       // Start stream processing in background
       (async () => {

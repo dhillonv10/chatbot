@@ -108,12 +108,16 @@ export const customModel = (apiIdentifier: string) => {
                 break;
               }
             }
-          } catch (error) {
+          } catch (error: unknown) {
             console.error('=== Stream error ===');
             console.error('Error details:', error);
-            console.error('Error name:', error.name);
-            console.error('Error message:', error.message);
-            console.error('Error stack:', error.stack);
+            if (error instanceof Error) {
+              console.error('Error name:', error.name);
+              console.error('Error message:', error.message);
+              console.error('Error stack:', error.stack);
+            } else {
+              console.error('Unknown error type:', typeof error);
+            }
             controller.error(error);
           }
         },

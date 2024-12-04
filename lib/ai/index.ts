@@ -38,7 +38,7 @@ function createChunk(messageId: string, content: string): AIStreamChunk {
   return {
     id: messageId,
     role: 'assistant',
-    content: content.replace(/\r\n/g, '\n'),  // Just normalize line endings
+    content,  
     createdAt: new Date().toISOString()
   };
 }
@@ -121,58 +121,36 @@ export const customModel = (apiIdentifier: string) => {
 
       const stream = new ReadableStream({
         async start(controller) {
-          console.log('=== Stream started ===');
           try {
             let fullContent = '';
             const messageId = crypto.randomUUID();
             console.log('Generated message ID:', messageId);
 
             for await (const chunk of response) {
-              console.log('Received chunk:', chunk);
-              
-              if (streamClosed) {
-                console.log('Stream is closed, breaking');
-                break;
-              }
+              if (streamClosed) break;
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 try {
-                  // Only normalize line endings, don't escape anything
-                  const newText = chunk.delta.text.replace(/\r\n/g, '\n');
-                  fullContent += newText;
-                  
+                  fullContent += chunk.delta.text;
                   const chunkData = createChunk(messageId, fullContent);
                   const payload = JSON.stringify(chunkData);
-                  
-                  // Use double newlines as per SSE spec
                   controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
                 } catch (error) {
                   console.error('Chunk processing error:', error);
                   continue;
                 }
               } else if (chunk.type === 'message_stop') {
-                // Use double newlines for DONE message too
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
                 controller.close();
-                console.log('Stream closed');
                 break;
               }
             }
           } catch (error) {
-            console.error('=== Stream error ===');
-            console.error('Error details:', error);
-            if (error instanceof Error) {
-              console.error('Error name:', error.name);
-              console.error('Error message:', error.message);
-              console.error('Error stack:', error.stack);
-            } else {
-              console.error('Unknown error type:', typeof error);
-            }
+            console.error('Stream error:', error);
             controller.error(error);
           }
         },
         cancel() {
-          console.log('Stream cancelled');
           streamClosed = true;
         },
       });

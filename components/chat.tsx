@@ -45,43 +45,76 @@ export function Chat({
     initialMessages,
     onResponse: (response) => {
       if (!response.ok) {
-        console.error('Chat response error:', {
-          status: response.status,
-          statusText: response.statusText,
-        });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      console.log('Chat response received:', {
-        status: response.status,
-        headers: Object.fromEntries(response.headers.entries()),
-      });
-      
-      // Debug the response body
-      response.clone().text().then(text => {
+
+      // Set up custom stream parsing
+      const reader = response.body?.getReader();
+      const decoder = new TextDecoder();
+      let buffer = '';
+
+      if (!reader) return;
+
+      (async () => {
         try {
-          console.log('Response body preview:', text.slice(0, 1000));
-          // Try parsing each SSE line
-          const lines = text.split('\n');
-          console.log('SSE lines:', lines.slice(0, 10).map(line => ({
-            line,
-            isValid: line.startsWith('data: '),
-            parsed: line.startsWith('data: ') ? JSON.parse(line.slice(6)) : null
-          })));
-        } catch (e) {
-          console.error('Error parsing response body:', e);
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+
+            buffer += decoder.decode(value, { stream: true });
+            const lines = buffer.split('\n');
+            
+            // Process all complete lines
+            for (let i = 0; i < lines.length - 1; i++) {
+              const line = lines[i].trim();
+              if (!line) continue;
+              
+              if (line === 'data: [DONE]') {
+                reader.cancel();
+                break;
+              }
+
+              if (line.startsWith('data: ')) {
+                try {
+                  const data = JSON.parse(line.slice(6));
+                  // Manually append the message
+                  setMessages(prev => {
+                    const lastMsg = prev[prev.length - 1];
+                    if (lastMsg?.id === data.id) {
+                      // Update existing message
+                      return [
+                        ...prev.slice(0, -1),
+                        data
+                      ];
+                    } else {
+                      // Add new message
+                      return [...prev, data];
+                    }
+                  });
+                } catch (e) {
+                  console.error('Error parsing message:', e);
+                }
+              }
+            }
+            
+            // Keep the last partial line in the buffer
+            buffer = lines[lines.length - 1];
+          }
+        } catch (error) {
+          console.error('Stream reading error:', error);
+        } finally {
+          reader.releaseLock();
         }
-      });
+      })();
+
+      return response;
     },
     onFinish: (message) => {
       console.log('Chat finished:', message);
       mutate('/api/history');
     },
     onError: (error) => {
-      console.error('Chat error details:', {
-        name: error.name,
-        message: error.message,
-        stack: error.stack,
-      });
+      console.error('Chat error:', error);
       setMessages(prev => [
         ...prev,
         {

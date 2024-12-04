@@ -24,12 +24,12 @@ import { generateTitleFromUserMessage } from '../../actions';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const {
-    id,
-    messages,
-    modelId,
-  }: { id: string; messages: Array<Message>; modelId: string } =
-    await request.json();
+  console.log('=== API Route Started ===');
+  
+  const body = await request.json();
+  console.log('Request body:', body);
+  
+  const { id, messages, modelId } = body;
 
   const session = await auth();
 
@@ -63,12 +63,14 @@ export async function POST(request: Request) {
     ],
   });
 
+  console.log('Creating stream response');
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }
   });
 
-  return new Response(response, {
+  console.log('Stream created, sending response');
+  const streamResponse = new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
@@ -76,6 +78,9 @@ export async function POST(request: Request) {
       'Transfer-Encoding': 'chunked'
     },
   });
+
+  console.log('Response headers:', Object.fromEntries(streamResponse.headers.entries()));
+  return streamResponse;
 }
 
 export async function DELETE(request: Request) {

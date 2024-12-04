@@ -27,6 +27,15 @@ function validateChunkData(data: unknown): boolean {
   });
 }
 
+function createChunk(messageId: string, content: string) {
+  return {
+    id: messageId,
+    role: 'assistant' as const,
+    content: content.replace(/\n/g, '\\n'),  // Escape newlines in content
+    createdAt: new Date().toISOString()
+  };
+}
+
 function inspectSSE(data: string) {
   try {
     // Handle special cases
@@ -121,36 +130,18 @@ export const customModel = (apiIdentifier: string) => {
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 try {
-                  // Normalize line endings and remove control characters
+                  // Normalize text without complex escaping
                   const newText = chunk.delta.text
                     .replace(/\r\n/g, '\n')
-                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
-                    .replace(/\u2028|\u2029/g, '\n');
+                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '');
                   
                   fullContent += newText;
-                  
-                  // Create the chunk data with properly encoded content
-                  const chunkData = {
-                    id: messageId,
-                    role: 'assistant' as const,
-                    content: encodeContent(fullContent.trim()),
-                    createdAt: new Date().toISOString()
-                  };
-
-                  // Convert to SSE format
+                  const chunkData = createChunk(messageId, fullContent);
                   const payload = JSON.stringify(chunkData);
-                  const sseData = `data: ${payload}\n\n`;
                   
-                  if (!inspectSSE(sseData)) {
-                    console.error('SSE validation failed:', {
-                      sseData,
-                      payload,
-                      chunkData
-                    });
-                    continue;
-                  }
-                  
-                  controller.enqueue(encoder.encode(sseData));
+                  // Use a single newline for SSE format
+                  const message = `data: ${payload}\n`;
+                  controller.enqueue(encoder.encode(message));
                 } catch (error: unknown) {
                   console.error('Chunk processing error:', {
                     error: error instanceof Error ? error.message : String(error),
@@ -161,9 +152,8 @@ export const customModel = (apiIdentifier: string) => {
                 }
               } else if (chunk.type === 'message_stop') {
                 console.log('Received message_stop, sending DONE');
-                const doneMessage = 'data: [DONE]\n\n';
-                console.log('DONE message:', doneMessage);
-                controller.enqueue(encoder.encode(doneMessage));
+                // Send DONE message with single newline
+                controller.enqueue(encoder.encode('data: [DONE]\n'));
                 controller.close();
                 console.log('Stream closed');
                 break;

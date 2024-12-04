@@ -40,8 +40,10 @@ export function Chat({
     stop,
     data: streamingData,
   } = useChat({
+    api: '/api/chat',
     body: { id, modelId: selectedModelId },
     initialMessages,
+    experimental_onFunctionCall: () => Promise.resolve(""),
     onResponse: (response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
@@ -54,7 +56,6 @@ export function Chat({
     },
     onError: (error) => {
       console.error('Chat error:', error);
-      // Handle the error gracefully
       setMessages(prev => [
         ...prev,
         {

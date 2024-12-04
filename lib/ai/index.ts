@@ -35,28 +35,19 @@ export const customModel = (apiIdentifier: string) => {
         throw new Error('Failed to call Anthropic API');
       }
 
-      console.log('Got response from Anthropic, creating stream');
-
       const encoder = new TextEncoder();
-      let streamClosed = false; // Track stream closure to avoid multiple close calls
+      let streamClosed = false;
 
       const stream = new ReadableStream({
         async start(controller) {
-          console.log('Stream start called');
           try {
             let content = '';
             for await (const chunk of response) {
-              if (streamClosed) {
-                console.warn('Stream already closed. Ignoring chunk:', chunk);
-                continue;
-              }
-
-              console.log('Processing chunk:', JSON.stringify(chunk, null, 2));
+              if (streamClosed) break;
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 content += chunk.delta.text;
-                console.log('Accumulated content so far:', content);
-
+                
                 const message = {
                   id: Date.now().toString(),
                   role: 'assistant',
@@ -64,42 +55,29 @@ export const customModel = (apiIdentifier: string) => {
                   createdAt: new Date(),
                 };
 
-                try {
-                  // Format as proper SSE data
-                  const sseData = `data: ${JSON.stringify(message)}\n\n`;
-                  controller.enqueue(encoder.encode(sseData));
-                } catch (err) {
-                  console.error('JSON Stringify Error:', err, message);
-                  controller.error(err);
-                }
+                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
               } else if (chunk.type === 'message_stop') {
-                console.log('Received message_stop chunk; closing stream.');
-                const finalMessage = {
-                  id: Date.now().toString(),
-                  role: 'assistant',
-                  content,
-                  createdAt: new Date(),
-                };
-                const sseData = `data: ${JSON.stringify(finalMessage)}\n\n`;
-                controller.enqueue(encoder.encode(sseData));
-                streamClosed = true;
-                controller.close();
+                if (!streamClosed) {
+                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+                  streamClosed = true;
+                  controller.close();
+                }
               }
             }
 
             if (!streamClosed) {
-              console.log('Stream complete without explicit stop. Closing stream.');
-              streamClosed = true;
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
               controller.close();
             }
-
-            console.log('Final accumulated content:', content);
           } catch (error) {
             console.error('Error during streaming:', error);
             if (!streamClosed) {
               controller.error(error);
             }
           }
+        },
+        cancel() {
+          streamClosed = true;
         },
       });
 

@@ -43,7 +43,7 @@ export function Chat({
     api: '/api/chat',
     body: { id, modelId: selectedModelId },
     initialMessages,
-    onResponse: (response) => {
+    onResponse: async (response) => {
       if (!response.ok) {
         throw new Error(`HTTP error! status: ${response.status}`);
       }
@@ -53,8 +53,9 @@ export function Chat({
       const decoder = new TextDecoder();
       let buffer = '';
 
-      if (!reader) return;
+      if (!reader) return response;
 
+      // Start stream processing in background
       (async () => {
         try {
           while (true) {
@@ -106,7 +107,6 @@ export function Chat({
           reader.releaseLock();
         }
       })();
-
       return response;
     },
     onFinish: (message) => {

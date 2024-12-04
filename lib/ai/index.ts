@@ -60,6 +60,16 @@ function inspectSSE(data: string) {
   }
 }
 
+// Helper to safely encode content for SSE
+function encodeContent(content: string): string {
+  return content
+    .replace(/\\/g, '\\\\')   // Escape backslashes first
+    .replace(/\n/g, '\\n')    // Then escape newlines
+    .replace(/\r/g, '\\r')    // Then carriage returns
+    .replace(/\t/g, '\\t')    // Then tabs
+    .replace(/"/g, '\\"');    // Then quotes
+}
+
 export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
@@ -119,24 +129,16 @@ export const customModel = (apiIdentifier: string) => {
                   
                   fullContent += newText;
                   
+                  // Create the chunk data with properly encoded content
                   const chunkData = {
                     id: messageId,
                     role: 'assistant' as const,
-                    content: fullContent.trim(),
+                    content: encodeContent(fullContent.trim()),
                     createdAt: new Date().toISOString()
                   };
 
-                  // Stringify with proper escaping of special characters
-                  const payload = JSON.stringify(chunkData, (_, value) => {
-                    if (typeof value === 'string') {
-                      return value.replace(/\n/g, '\\n')
-                                .replace(/\r/g, '\\r')
-                                .replace(/\t/g, '\\t');
-                    }
-                    return value;
-                  });
-
-                  // Ensure proper SSE format with consistent line endings
+                  // Convert to SSE format
+                  const payload = JSON.stringify(chunkData);
                   const sseData = `data: ${payload}\n\n`;
                   
                   if (!inspectSSE(sseData)) {

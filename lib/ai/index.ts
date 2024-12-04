@@ -6,7 +6,7 @@ if (!process.env.ANTHROPIC_API_KEY) {
 }
 
 const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY || '', // Handle empty string case for Vercel env
+  apiKey: process.env.ANTHROPIC_API_KEY || '',
 });
 
 export const customModel = (apiIdentifier: string) => {
@@ -19,9 +19,7 @@ export const customModel = (apiIdentifier: string) => {
         content: msg.content,
       }));
 
-      console.log('Starting API call with messages:', JSON.stringify(formattedMessages, null, 2));
       let response;
-
       try {
         response = await anthropic.messages.create({
           model: apiIdentifier,
@@ -41,39 +39,31 @@ export const customModel = (apiIdentifier: string) => {
       const stream = new ReadableStream({
         async start(controller) {
           try {
-            let content = '';
             for await (const chunk of response) {
               if (streamClosed) break;
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                content += chunk.delta.text;
-                
-                const message = {
-                  id: Date.now().toString(),
+                const data = {
+                  id: crypto.randomUUID(),
                   role: 'assistant',
-                  content: content,
+                  content: chunk.delta.text,
                   createdAt: new Date(),
                 };
 
-                controller.enqueue(encoder.encode(`data: ${JSON.stringify(message)}\n\n`));
+                controller.enqueue(
+                  encoder.encode(`data: ${JSON.stringify(data)}\n\n`)
+                );
               } else if (chunk.type === 'message_stop') {
-                if (!streamClosed) {
-                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                  streamClosed = true;
-                  controller.close();
-                }
+                controller.enqueue(
+                  encoder.encode('data: [DONE]\n\n')
+                );
+                break;
               }
             }
-
-            if (!streamClosed) {
-              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-              controller.close();
-            }
+            controller.close();
           } catch (error) {
-            console.error('Error during streaming:', error);
-            if (!streamClosed) {
-              controller.error(error);
-            }
+            console.error('Stream error:', error);
+            controller.error(error);
           }
         },
         cancel() {

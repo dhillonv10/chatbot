@@ -45,16 +45,43 @@ export function Chat({
     initialMessages,
     onResponse: (response) => {
       if (!response.ok) {
+        console.error('Chat response error:', {
+          status: response.status,
+          statusText: response.statusText,
+        });
         throw new Error(`HTTP error! status: ${response.status}`);
       }
-      console.log('Chat response received:', response);
+      console.log('Chat response received:', {
+        status: response.status,
+        headers: Object.fromEntries(response.headers.entries()),
+      });
+      
+      // Debug the response body
+      response.clone().text().then(text => {
+        try {
+          console.log('Response body preview:', text.slice(0, 1000));
+          // Try parsing each SSE line
+          const lines = text.split('\n');
+          console.log('SSE lines:', lines.slice(0, 10).map(line => ({
+            line,
+            isValid: line.startsWith('data: '),
+            parsed: line.startsWith('data: ') ? JSON.parse(line.slice(6)) : null
+          })));
+        } catch (e) {
+          console.error('Error parsing response body:', e);
+        }
+      });
     },
     onFinish: (message) => {
       console.log('Chat finished:', message);
       mutate('/api/history');
     },
     onError: (error) => {
-      console.error('Chat error:', error);
+      console.error('Chat error details:', {
+        name: error.name,
+        message: error.message,
+        stack: error.stack,
+      });
       setMessages(prev => [
         ...prev,
         {
@@ -70,6 +97,15 @@ export function Chat({
   useEffect(() => {
     console.log('Messages updated:', messages);
   }, [messages]);
+
+  useEffect(() => {
+    if (streamingData) {
+      console.log('Streaming data update:', {
+        length: streamingData.length,
+        lastChunk: streamingData[streamingData.length - 1],
+      });
+    }
+  }, [streamingData]);
 
   const { width: windowWidth = 1920, height: windowHeight = 1080 } =
     useWindowSize();

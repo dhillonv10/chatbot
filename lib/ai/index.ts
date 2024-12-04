@@ -10,24 +10,43 @@ const anthropic = new Anthropic({
 });
 
 // Helper function to inspect SSE data
+function validateChunkData(data: unknown): boolean {
+  if (!data || typeof data !== 'object') return false;
+  
+  const requiredFields = ['id', 'role', 'content', 'createdAt'];
+  return requiredFields.every(field => field in data);
+}
+
 function inspectSSE(data: string) {
   console.log('=== SSE Inspection ===');
   console.log('Raw data length:', data.length);
   
   // Sanitize the data before processing
-  const sanitizedData = data.replace(/[\x00-\x1F\x7F-\x9F]/g, '');
+  const sanitizedData = data.replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+                           .replace(/\u2028/g, '\\n')
+                           .replace(/\u2029/g, '\\n');
   
   console.log('Sanitized data:', sanitizedData);
-  console.log('Has correct newlines:', sanitizedData.endsWith('\n\n'));
   
   try {
-    // Remove the SSE prefix and any extra whitespace
-    const jsonPart = sanitizedData.replace(/^data:\s*/, '').trim();
     // Handle the [DONE] message specially
-    if (jsonPart === '[DONE]') {
+    if (sanitizedData.includes('[DONE]')) {
       return true;
     }
+    
+    // Remove the SSE prefix and any extra whitespace
+    const jsonPart = sanitizedData.replace(/^data:\s*/, '').trim();
+    if (!jsonPart) {
+      console.error('Empty JSON part after sanitization');
+      return false;
+    }
+    
     const parsed = JSON.parse(jsonPart);
+    if (!validateChunkData(parsed)) {
+      console.error('Invalid chunk data structure:', parsed);
+      return false;
+    }
+    
     console.log('Successfully parsed JSON:', parsed);
     return true;
   } catch (e: unknown) {
@@ -90,23 +109,30 @@ export const customModel = (apiIdentifier: string) => {
               }
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                fullContent += chunk.delta.text;
-                console.log('Updated full content:', fullContent);
-                
-                const chunkData = {
-                  id: messageId,
-                  role: 'assistant',
-                  content: fullContent.trim(), // Trim the content
-                  createdAt: new Date().toISOString(),
-                };
-
-                console.log('Created chunk data:', chunkData);
-                
                 try {
+                  const newText = chunk.delta.text.replace(/[\x00-\x1F\x7F-\x9F]/g, '')
+                                                .replace(/\u2028/g, '\\n')
+                                                .replace(/\u2029/g, '\\n');
+                  
+                  fullContent += newText;
+                  console.log('Updated full content length:', fullContent.length);
+                  
+                  const chunkData = {
+                    id: messageId,
+                    role: 'assistant' as const,
+                    content: fullContent.trim(),
+                    createdAt: new Date().toISOString()
+                  };
+
+                  if (!validateChunkData(chunkData)) {
+                    console.error('Invalid chunk data structure:', chunkData);
+                    continue;
+                  }
+
                   const payload = JSON.stringify(chunkData);
                   const sseData = `data: ${payload}\n\n`;
                   
-                  console.log('Preparing to send SSE data:');
+                  console.log('Preparing to send SSE data');
                   const isValid = inspectSSE(sseData);
                   
                   if (!isValid) {
@@ -115,9 +141,9 @@ export const customModel = (apiIdentifier: string) => {
                   }
                   
                   controller.enqueue(encoder.encode(sseData));
-                  console.log('Enqueued chunk');
-                } catch (error) {
-                  console.error('Error processing chunk:', error);
+                  console.log('Successfully enqueued chunk');
+                } catch (error: unknown) {
+                  console.error('Error processing chunk:', error instanceof Error ? error.message : String(error));
                   continue;
                 }
               } else if (chunk.type === 'message_stop') {

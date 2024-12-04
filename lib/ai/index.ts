@@ -13,47 +13,46 @@ const anthropic = new Anthropic({
 function validateChunkData(data: unknown): boolean {
   if (!data || typeof data !== 'object') return false;
   
-  const requiredFields = ['id', 'role', 'content', 'createdAt'];
-  return requiredFields.every(field => field in data);
+  // Check required fields exist and have correct types
+  const fields = {
+    id: 'string',
+    role: 'string',
+    content: 'string',
+    createdAt: 'string'
+  };
+  
+  return Object.entries(fields).every(([field, type]) => {
+    const value = (data as any)[field];
+    return value !== undefined && typeof value === type;
+  });
 }
 
 function inspectSSE(data: string) {
-  console.log('=== SSE Inspection ===');
-  console.log('Raw data length:', data.length);
-  
-  // Sanitize the data before processing
-  const sanitizedData = data.replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-                           .replace(/\u2028/g, '\\n')
-                           .replace(/\u2029/g, '\\n');
-  
-  console.log('Sanitized data:', sanitizedData);
-  
   try {
-    // Handle the [DONE] message specially
-    if (sanitizedData.includes('[DONE]')) {
-      return true;
-    }
+    // Handle special cases
+    if (data.includes('[DONE]')) return true;
+    if (!data.startsWith('data: ')) return false;
     
-    // Remove the SSE prefix and any extra whitespace
-    const jsonPart = sanitizedData.replace(/^data:\s*/, '').trim();
-    if (!jsonPart) {
-      console.error('Empty JSON part after sanitization');
+    // Extract JSON part, handling both \n\n and \r\n\r\n endings
+    const jsonMatch = data.match(/^data:\s*({.+?})\r?\n\r?\n/);
+    if (!jsonMatch) {
+      console.error('Invalid SSE format:', data);
       return false;
     }
     
-    const parsed = JSON.parse(jsonPart);
+    const jsonStr = jsonMatch[1];
+    const parsed = JSON.parse(jsonStr);
+    
     if (!validateChunkData(parsed)) {
-      console.error('Invalid chunk data structure:', parsed);
+      console.error('Invalid chunk structure:', parsed);
       return false;
     }
     
-    console.log('Successfully parsed JSON:', parsed);
     return true;
   } catch (e: unknown) {
-    console.error('Failed to parse JSON:', e);
-    console.error('Error details:', {
-      message: e instanceof Error ? e.message : String(e),
-      data: sanitizedData
+    console.error('SSE parse error:', {
+      error: e instanceof Error ? e.message : String(e),
+      data: data
     });
     return false;
   }
@@ -110,12 +109,13 @@ export const customModel = (apiIdentifier: string) => {
 
               if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                 try {
-                  const newText = chunk.delta.text.replace(/[\x00-\x1F\x7F-\x9F]/g, '')
-                                                .replace(/\u2028/g, '\\n')
-                                                .replace(/\u2029/g, '\\n');
+                  // Normalize line endings and remove control characters
+                  const newText = chunk.delta.text
+                    .replace(/\r\n/g, '\n')
+                    .replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F-\x9F]/g, '')
+                    .replace(/\u2028|\u2029/g, '\n');
                   
                   fullContent += newText;
-                  console.log('Updated full content length:', fullContent.length);
                   
                   const chunkData = {
                     id: messageId,
@@ -125,25 +125,25 @@ export const customModel = (apiIdentifier: string) => {
                   };
 
                   if (!validateChunkData(chunkData)) {
-                    console.error('Invalid chunk data structure:', chunkData);
+                    console.error('Invalid chunk data:', chunkData);
                     continue;
                   }
 
                   const payload = JSON.stringify(chunkData);
+                  // Ensure consistent line endings in SSE format
                   const sseData = `data: ${payload}\n\n`;
                   
-                  console.log('Preparing to send SSE data');
-                  const isValid = inspectSSE(sseData);
-                  
-                  if (!isValid) {
-                    console.error('Invalid SSE data detected, skipping chunk');
+                  if (!inspectSSE(sseData)) {
+                    console.error('SSE validation failed:', sseData);
                     continue;
                   }
                   
                   controller.enqueue(encoder.encode(sseData));
-                  console.log('Successfully enqueued chunk');
                 } catch (error: unknown) {
-                  console.error('Error processing chunk:', error instanceof Error ? error.message : String(error));
+                  console.error('Chunk processing error:', {
+                    error: error instanceof Error ? error.message : String(error),
+                    chunk: chunk.delta.text
+                  });
                   continue;
                 }
               } else if (chunk.type === 'message_stop') {

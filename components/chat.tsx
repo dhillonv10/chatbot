@@ -53,7 +53,9 @@ export function Chat({
       const decoder = new TextDecoder();
       let buffer = '';
 
-      if (!reader) return response;
+      if (!reader) {
+        console.error('No reader available');
+      }
 
       // Start stream processing in background
       (async () => {
@@ -107,7 +109,6 @@ export function Chat({
           reader.releaseLock();
         }
       })();
-      return response;
     },
     onFinish: (message) => {
       console.log('Chat finished:', message);

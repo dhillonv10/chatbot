@@ -19,7 +19,7 @@ import { BlockStreamHandler } from './block-stream-handler';
 import { MultimodalInput } from './multimodal-input';
 import { Overview } from './overview';
 
-const processStream = async (response, setMessages) => {
+const processStream = async (response: Response, setMessages: React.Dispatch<React.SetStateAction<Message[]>>) => {
     const reader = response.body?.getReader();
     if (!reader) {
         console.error('No reader available');

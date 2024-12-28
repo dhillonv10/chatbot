@@ -26,12 +26,13 @@ export async function POST(request: Request) {
   console.log('=== API Route Started ===');
   
   const body = await request.json();
-  console.log('Request body:', {
-    id: body.id,
-    modelId: body.modelId,
-    messageCount: body.messages?.length,
-    lastMessage: body.messages?.[body.messages?.length - 1]
-  });
+  
+  // Log the full message to see attachment structure
+  console.log('Full request messages:', body.messages);
+  
+  // Specifically log any attachments
+  const lastMessage = body.messages?.[body.messages.length - 1];
+  console.log('Last message attachments:', lastMessage?.experimental_attachments);
   
   const { id, messages, modelId } = body;
 
@@ -56,10 +57,11 @@ export async function POST(request: Request) {
     return new Response('No user message found', { status: 400 });
   }
 
-  console.log('Processing user message:', {
+  // Log the converted message to see how attachments are handled
+  console.log('Converted user message:', {
     role: userMessage.role,
     content: userMessage.content,
-    type: typeof userMessage.content
+    contentType: typeof userMessage.content,
   });
 
   const chat = await getChatById({ id });
@@ -77,6 +79,10 @@ export async function POST(request: Request) {
   });
 
   console.log('Creating stream response with model:', model.apiIdentifier);
+  
+  // Log the final message format being sent to Claude
+  console.log('Messages being sent to Claude:', messages);
+  
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }

@@ -1,8 +1,5 @@
-import {
-  type Message,
-  convertToCoreMessages,
-} from 'ai';
-import { z } from 'zod';
+import { type Message } from 'ai';
+import { Anthropic } from '@anthropic-ai/sdk';
 
 import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
@@ -27,7 +24,12 @@ export async function POST(request: Request) {
   console.log('=== API Route Started ===');
   
   const body = await request.json();
-  console.log('Request body:', body);
+  console.log('Request body:', {
+    id: body.id,
+    modelId: body.modelId,
+    messageCount: body.messages?.length,
+    lastMessage: body.messages?.[body.messages?.length - 1]
+  });
   
   const { id, messages, modelId } = body;
 
@@ -40,6 +42,7 @@ export async function POST(request: Request) {
   const model = models.find((model) => model.id === modelId);
 
   if (!model) {
+    console.error('Model not found:', modelId);
     return new Response('Model not found', { status: 404 });
   }
 
@@ -47,12 +50,20 @@ export async function POST(request: Request) {
   const userMessage = getMostRecentUserMessage(coreMessages);
 
   if (!userMessage) {
+    console.error('No user message found in request');
     return new Response('No user message found', { status: 400 });
   }
+
+  console.log('Processing user message:', {
+    role: userMessage.role,
+    content: userMessage.content,
+    attachments: userMessage.attachments
+  });
 
   const chat = await getChatById({ id });
 
   if (!chat) {
+    console.log('Creating new chat...');
     const title = await generateTitleFromUserMessage({ message: userMessage });
     await saveChat({ id, userId: session.user.id, title });
   }
@@ -63,7 +74,7 @@ export async function POST(request: Request) {
     ],
   });
 
-  console.log('Creating stream response');
+  console.log('Creating stream response with model:', model.apiIdentifier);
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }
@@ -97,6 +108,7 @@ export async function DELETE(request: Request) {
     return new Response('Missing chat ID', { status: 400 });
   }
 
+  console.log('Deleting chat:', id);
   await deleteChatById({ id });
 
   return new Response('OK');

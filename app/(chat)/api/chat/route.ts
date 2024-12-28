@@ -1,5 +1,7 @@
-import { type Message } from 'ai';
-import { Anthropic } from '@anthropic-ai/sdk';
+import {
+  type Message,
+  convertToCoreMessages
+} from 'ai';
 
 import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';

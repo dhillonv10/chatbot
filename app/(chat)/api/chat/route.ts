@@ -59,7 +59,7 @@ export async function POST(request: Request) {
   console.log('Processing user message:', {
     role: userMessage.role,
     content: userMessage.content,
-    attachments: userMessage.attachments
+    type: typeof userMessage.content
   });
 
   const chat = await getChatById({ id });

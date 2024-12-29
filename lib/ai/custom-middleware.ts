@@ -1,7 +1,19 @@
 import { type Message } from 'ai';
-import type { MessageParam } from '@anthropic-ai/sdk';
 
-export async function formatMessageForClaude(message: Message): Promise<MessageParam> {
+type ClaudeMessage = {
+  role: 'user' | 'assistant';
+  content: string | Array<{
+    type: 'text' | 'document';
+    text?: string;
+    source?: {
+      type: 'base64';
+      media_type: string;
+      data: string;
+    };
+  }>;
+};
+
+export async function formatMessageForClaude(message: Message): Promise<ClaudeMessage> {
   if (!message.experimental_attachments) {
     return { 
       role: message.role === 'user' ? 'user' : 'assistant',

@@ -1,7 +1,7 @@
 import { type Message } from 'ai';
-import type { Message as AnthropicMessage } from '@anthropic-ai/sdk';
+import type { MessageParam } from '@anthropic-ai/sdk';
 
-export async function formatMessageForClaude(message: Message): Promise<AnthropicMessage> {
+export async function formatMessageForClaude(message: Message): Promise<MessageParam> {
   if (!message.experimental_attachments) {
     return { 
       role: message.role === 'user' ? 'user' : 'assistant',

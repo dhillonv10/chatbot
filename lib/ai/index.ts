@@ -26,13 +26,41 @@ export const customModel = (apiIdentifier: string) => {
 
         console.log('Formatted messages for Claude:', formattedMessages);
         
-        const response = await anthropic.messages.create({
-          model: apiIdentifier,
-          messages: formattedMessages,
-          system: options?.system,
-          max_tokens: 4096,
-          stream: true,
-        });
+        // Check if we have a PDF in the messages
+        const hasPDF = messages.some(msg => msg.experimental_attachments?.some(
+          att => att.contentType === 'application/pdf'
+        ));
+
+        let response;
+
+        if (hasPDF) {
+          // Make direct API call for PDF messages
+          console.log('PDF detected, making direct API call');
+          response = await fetch('https://api.anthropic.com/v1/messages', {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+              'anthropic-version': '2023-06-01'
+            },
+            body: JSON.stringify({
+              model: apiIdentifier,
+              messages: formattedMessages,
+              system: options?.system,
+              max_tokens: 4096,
+              stream: true
+            })
+          });
+        } else {
+          // Use SDK for non-PDF messages
+          response = await anthropic.messages.create({
+            model: apiIdentifier,
+            messages: formattedMessages,
+            system: options?.system,
+            max_tokens: 4096,
+            stream: true,
+          });
+        }
         
         console.log('Successfully created Anthropic stream');
 
@@ -46,11 +74,40 @@ export const customModel = (apiIdentifier: string) => {
               const messageId = crypto.randomUUID();
               console.log('Generated message ID:', messageId);
 
-              for await (const chunk of response) {
-                if (streamClosed) break;
+              if (hasPDF) {
+                // Handle raw fetch response
+                const reader = response.body?.getReader();
+                if (!reader) throw new Error('No reader available');
 
-                if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                  try {
+                while (true) {
+                  const { done, value } = await reader.read();
+                  if (done) break;
+
+                  const chunk = new TextDecoder().decode(value);
+                  const lines = chunk.split('\n');
+
+                  for (const line of lines) {
+                    if (line.startsWith('data: ')) {
+                      const data = JSON.parse(line.slice(6));
+                      if (data.type === 'content_block_delta' && data.delta?.text) {
+                        fullContent += data.delta.text;
+                        const chunkData = {
+                          id: messageId,
+                          role: 'assistant',
+                          content: fullContent,
+                          createdAt: new Date().toISOString()
+                        };
+                        controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunkData)}\n\n`));
+                      }
+                    }
+                  }
+                }
+              } else {
+                // Handle SDK response
+                for await (const chunk of response) {
+                  if (streamClosed) break;
+
+                  if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
                     fullContent += chunk.delta.text;
                     const chunkData = {
                       id: messageId,
@@ -58,18 +115,13 @@ export const customModel = (apiIdentifier: string) => {
                       content: fullContent,
                       createdAt: new Date().toISOString()
                     };
-                    const payload = JSON.stringify(chunkData);
-                    controller.enqueue(encoder.encode(`data: ${payload}\n\n`));
-                  } catch (error) {
-                    console.error('Chunk processing error:', error);
-                    continue;
+                    controller.enqueue(encoder.encode(`data: ${JSON.stringify(chunkData)}\n\n`));
                   }
-                } else if (chunk.type === 'message_stop') {
-                  controller.enqueue(encoder.encode('data: [DONE]\n\n'));
-                  controller.close();
-                  break;
                 }
               }
+
+              controller.enqueue(encoder.encode('data: [DONE]\n\n'));
+              controller.close();
             } catch (error) {
               console.error('Stream error:', error);
               controller.error(error);

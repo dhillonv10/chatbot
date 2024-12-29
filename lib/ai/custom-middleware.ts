@@ -1,8 +1,12 @@
 import { type Message } from 'ai';
+import type { Message as AnthropicMessage } from '@anthropic-ai/sdk';
 
-export async function formatMessageForClaude(message: Message) {
+export async function formatMessageForClaude(message: Message): Promise<AnthropicMessage> {
   if (!message.experimental_attachments) {
-    return { role: message.role, content: message.content };
+    return { 
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: message.content 
+    };
   }
 
   // Handle messages with attachments
@@ -18,11 +22,11 @@ export async function formatMessageForClaude(message: Message) {
     const base64Pdf = Buffer.from(pdfBuffer).toString('base64');
 
     return {
-      role: message.role,
+      role: 'user',
       content: [
         {
           type: 'text',
-          text: message.content
+          text: message.content as string
         },
         {
           type: 'document',
@@ -36,5 +40,8 @@ export async function formatMessageForClaude(message: Message) {
     };
   }
 
-  return { role: message.role, content: message.content };
+  return {
+    role: message.role === 'user' ? 'user' : 'assistant',
+    content: message.content
+  };
 }

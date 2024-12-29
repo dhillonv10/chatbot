@@ -45,24 +45,22 @@ export async function formatMessageForClaude(message: Message): Promise<ClaudeMe
     
     console.log('Successfully converted PDF to base64');
 
-    // Create message blocks
-    const textBlock: TextBlock = {
-      type: 'text',
-      text: message.content as string
-    };
-
-    const documentBlock: DocumentBlock = {
-      type: 'document',
-      source: {
-        type: 'base64',
-        media_type: 'application/pdf',
-        data: base64Pdf
-      }
-    };
-
     return {
       role: 'user',
-      content: [textBlock, documentBlock]
+      content: [
+        {
+          type: 'text',
+          text: message.content as string
+        },
+        {
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: base64Pdf
+          }
+        }
+      ]
     };
   }
 

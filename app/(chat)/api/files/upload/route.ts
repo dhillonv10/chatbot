@@ -4,14 +4,16 @@ import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
 
+// Use Blob instead of File since File is not available in Node.js environment
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
     .refine((file) => file.size <= 5 * 1024 * 1024, {
       message: 'File size should be less than 5MB',
     })
-    .refine((file) => ['image/jpeg', 'image/png', 'application/pdf'].includes(file.type), {
-      message: 'File type should be JPEG, PNG or PDF',
+    // Update the file type based on the kind of files you want to accept
+    .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
+      message: 'File type should be JPEG or PNG',
     }),
 });
 
@@ -34,12 +36,6 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
     }
 
-    console.log('File upload attempted:', {
-      type: file.type,
-      size: file.size,
-      name: (file as File).name
-    });
-
     const validatedFile = FileSchema.safeParse({ file });
 
     if (!validatedFile.success) {
@@ -47,7 +43,6 @@ export async function POST(request: Request) {
         .map((error) => error.message)
         .join(', ');
 
-      console.error('File validation failed:', errorMessage);
       return NextResponse.json({ error: errorMessage }, { status: 400 });
     }
 
@@ -56,19 +51,15 @@ export async function POST(request: Request) {
     const fileBuffer = await file.arrayBuffer();
 
     try {
-      console.log('Attempting to upload file to blob storage:', filename);
       const data = await put(`${filename}`, fileBuffer, {
         access: 'public',
       });
-      console.log('File successfully uploaded to blob storage:', data.url);
 
       return NextResponse.json(data);
     } catch (error) {
-      console.error('Blob storage upload failed:', error);
       return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
     }
   } catch (error) {
-    console.error('Request processing failed:', error);
     return NextResponse.json(
       { error: 'Failed to process request' },
       { status: 500 },

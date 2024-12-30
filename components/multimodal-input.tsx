@@ -3,7 +3,8 @@
 import React, { useRef, useState, useCallback, ChangeEvent } from 'react';
 import { sendPdfToClaude } from '@/lib/ai/models';
 import { useLocalStorage } from 'usehooks-ts';
-import { Button, Textarea } from './ui';
+import { Button } from './ui/button';
+import { Textarea } from './ui/textarea';
 import { sanitizeUIMessages } from '@/lib/utils';
 
 export function MultimodalInput({

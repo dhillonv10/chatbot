@@ -24,63 +24,41 @@ import { generateTitleFromUserMessage } from '../../actions';
 export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  console.log('=== API Route Started ===');
+  const { id, messages, modelId } = await request.json();
   
-  const body = await request.json();
-  console.log('Request body:', body);
-  
-  const { id, messages, modelId } = body;
-
   const session = await auth();
-
-  if (!session || !session.user || !session.user.id) {
+  if (!session?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
 
   const model = models.find((model) => model.id === modelId);
-
   if (!model) {
     return new Response('Model not found', { status: 404 });
   }
 
-  const coreMessages = convertToCoreMessages(messages);
-  const userMessage = getMostRecentUserMessage(coreMessages);
-
-  if (!userMessage) {
-    return new Response('No user message found', { status: 400 });
+  // Handle attachments if present
+  const lastMessage = messages[messages.length - 1];
+  if (lastMessage.experimental_attachments) {
+    const attachmentUrls = lastMessage.experimental_attachments.map(
+      (attachment) => attachment.url
+    );
+    
+    // Add attachment context to the message
+    lastMessage.content += `\n\nI've attached the following PDFs: ${attachmentUrls.join(', ')}`;
   }
 
-  const chat = await getChatById({ id });
-
-  if (!chat) {
-    const title = await generateTitleFromUserMessage({ message: userMessage });
-    await saveChat({ id, userId: session.user.id, title });
-  }
-
-  await saveMessages({
-    messages: [
-      { ...userMessage, id: generateUUID(), createdAt: new Date(), chatId: id },
-    ],
-  });
-
-  console.log('Creating stream response');
   const response = await customModel(model.apiIdentifier).invoke({
     messages,
     options: { system: systemPrompt }
   });
 
-  console.log('Stream created, sending response');
-  const streamResponse = new Response(response, {
+  return new Response(response, {
     headers: {
       'Content-Type': 'text/event-stream',
       'Cache-Control': 'no-cache, no-transform',
       'Connection': 'keep-alive',
-      'Transfer-Encoding': 'chunked'
     },
   });
-
-  console.log('Response headers:', Object.fromEntries(streamResponse.headers.entries()));
-  return streamResponse;
 }
 
 export async function DELETE(request: Request) {

@@ -1,25 +1,53 @@
-// Define your models here.
+import fs from 'fs';
 
-export interface Model {
-  id: string;
-  label: string;
-  apiIdentifier: string;
-  description: string;
-}
+export const encodeFileToBase64 = (file: File): Promise<string> => {
+  return new Promise<string>((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => {
+      const base64String = reader.result?.toString().split(',')[1] || '';
+      resolve(base64String);
+    };
+    reader.onerror = reject;
+    reader.readAsDataURL(file);
+  });
+};
 
-export const models: Array<Model> = [
-  {
-    id: 'claude-3-5-sonnet',
-    label: 'Claude 3.5 Sonnet',
-    apiIdentifier: 'claude-3-5-sonnet-20241022',
-    description: 'Latest Claude model optimized for complex tasks with excellent performance',
-  },
-  {
-    id: 'claude-3-5-haiku',
-    label: 'Claude 3.5 Haiku',
-    apiIdentifier: 'claude-3-5-haiku-20241022',
-    description: 'Fast and efficient Claude model for quick responses and simple tasks',
+export const sendPdfToClaude = async (file: File, prompt: string) => {
+  const base64File = await encodeFileToBase64(file);
+  const response = await fetch('https://api.anthropic.com/v1/messages', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer YOUR_CLAUDE_API_KEY`,
+      'Content-Type': 'application/json',
+      'anthropic-version': '2023-06-01',
+    },
+    body: JSON.stringify({
+      model: 'claude-3-5-sonnet-20241022',
+      max_tokens: 1024,
+      messages: [
+        {
+          role: 'user',
+          content: [
+            {
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: 'application/pdf',
+                data: base64File,
+              },
+            },
+            {
+              type: 'text',
+              text: prompt,
+            },
+          ],
+        },
+      ],
+    }),
+  });
+
+  if (!response.ok) {
+    throw new Error(`Claude API error: ${response.statusText}`);
   }
-] as const;
-
-export const DEFAULT_MODEL_NAME: string = 'claude-3-5-sonnet';
+  return response.json();
+};

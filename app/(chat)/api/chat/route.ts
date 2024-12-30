@@ -3,6 +3,7 @@ import {
   convertToCoreMessages,
 } from 'ai';
 import { z } from 'zod';
+import { Attachment } from '@/types/chat';
 
 import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
@@ -40,7 +41,7 @@ export async function POST(request: Request) {
   const lastMessage = messages[messages.length - 1];
   if (lastMessage.experimental_attachments) {
     const attachmentUrls = lastMessage.experimental_attachments.map(
-      (attachment) => attachment.url
+      (attachment: Attachment) => attachment.url
     );
     
     // Add attachment context to the message

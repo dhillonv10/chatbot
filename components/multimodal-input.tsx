@@ -157,10 +157,7 @@ export function MultimodalInput({
           }))
         );
 
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...pdfFiles
-        ]);
+        setAttachments((current) => [...current, ...pdfFiles]);
       } catch (error) {
         console.error('Error processing files:', error);
       } finally {

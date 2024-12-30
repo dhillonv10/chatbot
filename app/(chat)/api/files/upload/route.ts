@@ -49,15 +49,14 @@ export async function POST(request: Request) {
     const filename = (formData.get('file') as File).name;
     const fileBuffer = await file.arrayBuffer();
 
-    try {
-      const data = await put(`${filename}`, fileBuffer, {
-        access: 'public',
-      });
+    const buffer = await file.arrayBuffer();
+    const base64Content = Buffer.from(buffer).toString('base64');
 
-      return NextResponse.json(data);
-    } catch (error) {
-      return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-    }
+    return NextResponse.json({
+      name: file.name,
+      type: file.type,
+      base64: base64Content
+    });
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to process request' },

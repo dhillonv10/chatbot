@@ -39,13 +39,28 @@ export async function POST(request: Request) {
 
   // Handle attachments if present
   const lastMessage = messages[messages.length - 1];
-  if (lastMessage.experimental_attachments) {
-    const attachmentUrls = lastMessage.experimental_attachments.map(
-      (attachment: Attachment) => attachment.url
-    );
-    
-    // Add attachment context to the message
-    lastMessage.content += `\n\nI've attached the following PDFs: ${attachmentUrls.join(', ')}`;
+  if (lastMessage.experimental_attachments?.length) {
+    const attachments = lastMessage.experimental_attachments.map(attachment => ({
+      type: "base64",
+      source: attachment.base64,
+      name: attachment.name
+    }));
+
+    const response = await customModel(modelId).invoke({
+      messages,
+      options: { 
+        system: systemPrompt,
+        attachments 
+      }
+    });
+
+    return new Response(response, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      },
+    });
   }
 
   const response = await customModel(model.apiIdentifier).invoke({

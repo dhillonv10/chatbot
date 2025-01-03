@@ -5,7 +5,7 @@ import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
 import { Attachment as ChatAttachment } from '@/types/chat';
-import { Attachment as UIAttachment } from '@ai-sdk/ui-utils/dist/index';
+import { Attachment as UIAttachment } from '@ai-sdk/ui-utils'; // Import from the main module
 
 export const maxDuration = 60;
 

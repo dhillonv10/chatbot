@@ -7,6 +7,14 @@ import { systemPrompt } from '@/lib/ai/prompts';
 
 export const maxDuration = 60;
 
+interface ChatMessage extends Message {
+  experimental_attachments?: Array<{
+    base64: string;
+    name: string;
+    type: string;
+  }>;
+}
+
 export async function POST(request: Request) {
   const { id, messages, modelId } = await request.json();
   
@@ -20,7 +28,7 @@ export async function POST(request: Request) {
     return new Response('Model not found', { status: 404 });
   }
 
-  const formattedMessages = messages.map(message => {
+  const formattedMessages = messages.map((message: ChatMessage) => {
     if (!message.experimental_attachments?.length) {
       return {
         role: message.role,

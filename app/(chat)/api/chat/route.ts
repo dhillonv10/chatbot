@@ -1,38 +1,38 @@
-import { Message } from '@/types/chat';
-import { Anthropic } from '@anthropic-ai/sdk';
+// app/(chat)/api/chat/route.ts
+import { type Message } from 'ai';
 import { auth } from '@/app/(auth)/auth';
+import { customModel } from '@/lib/ai';
+import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
 
-if (!process.env.ANTHROPIC_API_KEY) {
-  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
-}
-
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+export const maxDuration = 60;
 
 export async function POST(request: Request) {
-  const { messages } = await request.json();
+  const { id, messages, modelId } = await request.json();
   
   const session = await auth();
   if (!session?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const formattedMessages = messages.map((message: Message) => {
+  const model = models.find((model) => model.id === modelId);
+  if (!model) {
+    return new Response('Model not found', { status: 404 });
+  }
+
+  const formattedMessages = messages.map(message => {
     if (!message.experimental_attachments?.length) {
       return {
-        role: message.role === 'user' ? 'user' : 'assistant',
+        role: message.role,
         content: message.content
       };
     }
 
-    // Handle messages with PDF attachments
     return {
-      role: message.role === 'user' ? 'user' : 'assistant',
+      role: message.role,
       content: [
         ...message.experimental_attachments.map(attachment => ({
-          type: 'document',
+          type: 'image',
           source: {
             type: 'base64',
             media_type: 'application/pdf',
@@ -47,21 +47,16 @@ export async function POST(request: Request) {
     };
   });
 
-  try {
-    const response = await anthropic.messages.create({
-      model: "claude-3-sonnet-20240229",
-      max_tokens: 4096,
-      messages: formattedMessages,
-      system: systemPrompt
-    });
+  const response = await customModel(model.apiIdentifier).invoke({
+    messages: formattedMessages,
+    options: { system: systemPrompt }
+  });
 
-    return new Response(response.content[0].text, {
-      headers: {
-        'Content-Type': 'text/plain',
-      }
-    });
-  } catch (error) {
-    console.error('Error calling Claude API:', error);
-    return new Response('Error processing request', { status: 500 });
-  }
+  return new Response(response, {
+    headers: {
+      'Content-Type': 'text/event-stream',
+      'Cache-Control': 'no-cache, no-transform',
+      'Connection': 'keep-alive',
+    },
+  });
 }

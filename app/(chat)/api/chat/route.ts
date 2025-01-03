@@ -5,7 +5,6 @@ import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
 import { Attachment as ChatAttachment } from '@/types/chat';
-import { Attachment as UIAttachment } from '@ai-sdk/ui-utils'; // Import from the main module
 
 export const maxDuration = 60;
 
@@ -13,8 +12,8 @@ interface ChatMessage extends Omit<Message, 'experimental_attachments'> {
   experimental_attachments?: ChatAttachment[];
 }
 
-// Create a new interface that extends UIAttachment and includes the base64 property
-interface CustomAttachment extends UIAttachment {
+// Create a new interface that extends ChatAttachment and includes the base64 property
+interface CustomAttachment extends ChatAttachment {
   base64: string;
 }
 

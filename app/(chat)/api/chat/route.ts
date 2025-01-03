@@ -4,15 +4,12 @@ import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
+import { Attachment } from '@/types/chat';
 
 export const maxDuration = 60;
 
 interface ChatMessage extends Message {
-  experimental_attachments?: Array<{
-    base64: string;
-    name: string;
-    type: string;
-  }>;
+  experimental_attachments?: Attachment[];
 }
 
 export async function POST(request: Request) {
@@ -28,7 +25,7 @@ export async function POST(request: Request) {
     return new Response('Model not found', { status: 404 });
   }
 
-  const formattedMessages = messages.map((message: ChatMessage) => {
+  const formattedMessages = (messages as ChatMessage[]).map((message: ChatMessage) => {
     if (!message.experimental_attachments?.length) {
       return {
         role: message.role,

@@ -1,4 +1,13 @@
-import fs from 'fs';
+// lib/ai/models.ts
+export const DEFAULT_MODEL_NAME = 'claude-3-5-sonnet-20241022';
+
+export const models = [
+  {
+    id: 'claude-3-5-sonnet',
+    name: 'Claude 3.5 Sonnet',
+    apiIdentifier: 'claude-3-5-sonnet-20241022'
+  }
+];
 
 export const encodeFileToBase64 = (file: File): Promise<string> => {
   return new Promise<string>((resolve, reject) => {
@@ -10,44 +19,4 @@ export const encodeFileToBase64 = (file: File): Promise<string> => {
     reader.onerror = reject;
     reader.readAsDataURL(file);
   });
-};
-
-export const sendPdfToClaude = async (file: File, prompt: string) => {
-  const base64File = await encodeFileToBase64(file);
-  const response = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      Authorization: `Bearer YOUR_CLAUDE_API_KEY`,
-      'Content-Type': 'application/json',
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({
-      model: 'claude-3-5-sonnet-20241022',
-      max_tokens: 1024,
-      messages: [
-        {
-          role: 'user',
-          content: [
-            {
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: 'application/pdf',
-                data: base64File,
-              },
-            },
-            {
-              type: 'text',
-              text: prompt,
-            },
-          ],
-        },
-      ],
-    }),
-  });
-
-  if (!response.ok) {
-    throw new Error(`Claude API error: ${response.statusText}`);
-  }
-  return response.json();
 };

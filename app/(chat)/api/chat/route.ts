@@ -4,12 +4,18 @@ import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
 import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
-import { Attachment } from '@/types/chat';
+import { Attachment as ChatAttachment } from '@/types/chat';
+import { Attachment as UIAttachment } from '@ai-sdk/ui-utils/dist/index';
 
 export const maxDuration = 60;
 
-interface ChatMessage extends Message {
-  experimental_attachments?: Attachment[];
+interface ChatMessage extends Omit<Message, 'experimental_attachments'> {
+  experimental_attachments?: ChatAttachment[];
+}
+
+// Create a new interface that extends UIAttachment and includes the base64 property
+interface CustomAttachment extends UIAttachment {
+  base64: string;
 }
 
 export async function POST(request: Request) {
@@ -33,10 +39,16 @@ export async function POST(request: Request) {
       };
     }
 
+    // Convert ChatAttachment to CustomAttachment
+    const customAttachments = message.experimental_attachments.map((attachment: ChatAttachment) => ({
+      url: '', // Add an empty url property to satisfy the UIAttachment interface
+     ...attachment,
+    } as CustomAttachment));
+
     return {
       role: message.role,
       content: [
-        ...message.experimental_attachments.map(attachment => ({
+       ...customAttachments.map(attachment => ({
           type: 'image',
           source: {
             type: 'base64',
@@ -54,7 +66,7 @@ export async function POST(request: Request) {
 
   const response = await customModel(model.apiIdentifier).invoke({
     messages: formattedMessages,
-    options: { system: systemPrompt }
+    options: systemPrompt
   });
 
   return new Response(response, {

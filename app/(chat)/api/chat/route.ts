@@ -1,97 +1,67 @@
-import {
-  type Message,
-  convertToCoreMessages,
-} from 'ai';
-import { z } from 'zod';
-import { Attachment } from '@/types/chat';
-
+import { Message } from '@/types/chat';
+import { Anthropic } from '@anthropic-ai/sdk';
 import { auth } from '@/app/(auth)/auth';
-import { customModel } from '@/lib/ai';
-import { models } from '@/lib/ai/models';
 import { systemPrompt } from '@/lib/ai/prompts';
-import {
-  deleteChatById,
-  getChatById,
-  saveChat,
-  saveMessages,
-} from '@/lib/db/queries';
-import {
-  generateUUID,
-  getMostRecentUserMessage,
-} from '@/lib/utils';
 
-import { generateTitleFromUserMessage } from '../../actions';
+if (!process.env.ANTHROPIC_API_KEY) {
+  throw new Error('Missing ANTHROPIC_API_KEY environment variable');
+}
 
-export const maxDuration = 60;
+const anthropic = new Anthropic({
+  apiKey: process.env.ANTHROPIC_API_KEY!,
+});
 
 export async function POST(request: Request) {
-  const { id, messages, modelId } = await request.json();
+  const { messages } = await request.json();
   
   const session = await auth();
   if (!session?.user?.id) {
     return new Response('Unauthorized', { status: 401 });
   }
 
-  const model = models.find((model) => model.id === modelId);
-  if (!model) {
-    return new Response('Model not found', { status: 404 });
-  }
+  const formattedMessages = messages.map((message: Message) => {
+    if (!message.experimental_attachments?.length) {
+      return {
+        role: message.role === 'user' ? 'user' : 'assistant',
+        content: message.content
+      };
+    }
 
-  // Handle attachments if present
-  const lastMessage = messages[messages.length - 1];
-  if (lastMessage.experimental_attachments?.length) {
-    const attachments = lastMessage.experimental_attachments.map(attachment => ({
-      type: "base64",
-      source: attachment.base64,
-      name: attachment.name
-    }));
+    // Handle messages with PDF attachments
+    return {
+      role: message.role === 'user' ? 'user' : 'assistant',
+      content: [
+        ...message.experimental_attachments.map(attachment => ({
+          type: 'document',
+          source: {
+            type: 'base64',
+            media_type: 'application/pdf',
+            data: attachment.base64
+          }
+        })),
+        {
+          type: 'text',
+          text: message.content
+        }
+      ]
+    };
+  });
 
-    const response = await customModel(modelId).invoke({
-      messages,
-      options: { 
-        system: systemPrompt,
-        attachments 
+  try {
+    const response = await anthropic.messages.create({
+      model: "claude-3-sonnet-20240229",
+      max_tokens: 4096,
+      messages: formattedMessages,
+      system: systemPrompt
+    });
+
+    return new Response(response.content[0].text, {
+      headers: {
+        'Content-Type': 'text/plain',
       }
     });
-
-    return new Response(response, {
-      headers: {
-        'Content-Type': 'text/event-stream',
-        'Cache-Control': 'no-cache, no-transform',
-        'Connection': 'keep-alive',
-      },
-    });
+  } catch (error) {
+    console.error('Error calling Claude API:', error);
+    return new Response('Error processing request', { status: 500 });
   }
-
-  const response = await customModel(model.apiIdentifier).invoke({
-    messages,
-    options: { system: systemPrompt }
-  });
-
-  return new Response(response, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-    },
-  });
-}
-
-export async function DELETE(request: Request) {
-  const { searchParams } = new URL(request.url);
-  const id = searchParams.get('id');
-
-  const session = await auth();
-
-  if (!session?.user?.id) {
-    return new Response('Unauthorized', { status: 401 });
-  }
-
-  if (!id) {
-    return new Response('Missing chat ID', { status: 400 });
-  }
-
-  await deleteChatById({ id });
-
-  return new Response('OK');
 }

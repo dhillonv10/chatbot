@@ -6,7 +6,8 @@ interface Attachment {
   source: {
     type: string;
     media_type: string;
-    data: string;
+    data?: string; // For base64-encoded data
+    url?: string; // For public URLs
   };
 }
 
@@ -25,14 +26,26 @@ export async function POST(request: Request) {
         return {
           role: message.role,
           content: [
-            ...message.experimental_attachments.map((attachment) => ({
-              type: 'document',
-              source: {
-                type: 'base64',
-                media_type: attachment.source.media_type,
-                data: attachment.source.data,
-              },
-            })),
+            ...message.experimental_attachments.map((attachment) => {
+              if (attachment.source.url) {
+                return {
+                  type: 'document',
+                  source: {
+                    type: 'url',
+                    media_type: attachment.source.media_type,
+                    url: attachment.source.url,
+                  },
+                };
+              }
+              return {
+                type: 'document',
+                source: {
+                  type: 'base64',
+                  media_type: attachment.source.media_type,
+                  data: attachment.source.data,
+                },
+              };
+            }),
             {
               type: 'text',
               text: message.content,

@@ -55,7 +55,12 @@ export async function POST(request: Request) {
                 access: 'public',
             });
 
-            return NextResponse.json(data);
+            // Ensure the URL is returned in the response
+            return NextResponse.json({
+                url: data.url,
+                contentType: file.type,
+                name: filename,
+            });
         } catch (error) {
             return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
         }

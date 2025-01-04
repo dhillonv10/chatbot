@@ -153,13 +153,12 @@ export function MultimodalInput({
 
       if (response.ok) {
         const data = await response.json();
-        const { base64, contentType } = data;
+        const { url, contentType, name } = data;
 
         return {
-          url: '', // Add a valid URL here if applicable
-          data: base64,
+          url, // URL returned by the backend
           contentType,
-          name: file.name,
+          name,
         };
       }
       const { error } = await response.json();
@@ -179,11 +178,7 @@ export function MultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         const successfullyUploadedAttachments = uploadedAttachments
-          .filter((attachment) => attachment !== undefined)
-          .map((attachment) => ({
-            ...attachment,
-            url: '', // Replace with a valid URL if required
-          }));
+          .filter((attachment) => attachment !== undefined);
 
         setAttachments((currentAttachments) => [
           ...currentAttachments,

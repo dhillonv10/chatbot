@@ -156,6 +156,7 @@ export function MultimodalInput({
         const { base64, contentType } = data;
 
         return {
+          url: '', // Add a valid URL here if applicable
           data: base64,
           contentType,
           name: file.name,
@@ -177,9 +178,12 @@ export function MultimodalInput({
       try {
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined,
-        );
+        const successfullyUploadedAttachments = uploadedAttachments
+          .filter((attachment) => attachment !== undefined)
+          .map((attachment) => ({
+            ...attachment,
+            url: '', // Replace with a valid URL if required
+          }));
 
         setAttachments((currentAttachments) => [
           ...currentAttachments,

@@ -8,11 +8,12 @@ import { auth } from '@/app/(auth)/auth';
 const FileSchema = z.object({
   file: z
     .instanceof(Blob)
-    .refine((file) => file.size <= 10 * 1024 * 1024, {
-      message: 'File size should be less than 10MB',
+    .refine((file) => file.size <= 5 * 1024 * 1024, {
+      message: 'File size should be less than 5MB',
     })
-    .refine((file) => file.type === 'application/pdf', {
-      message: 'Only PDF files are allowed',
+    // Update the file type based on the kind of files you want to accept
+    .refine((file) => ['image/jpeg', 'image/png'].includes(file.type), {
+      message: 'File type should be JPEG or PNG',
     }),
 });
 
@@ -49,14 +50,15 @@ export async function POST(request: Request) {
     const filename = (formData.get('file') as File).name;
     const fileBuffer = await file.arrayBuffer();
 
-    const buffer = await file.arrayBuffer();
-    const base64Content = Buffer.from(buffer).toString('base64');
+    try {
+      const data = await put(`${filename}`, fileBuffer, {
+        access: 'public',
+      });
 
-    return NextResponse.json({
-      name: file.name,
-      type: file.type,
-      base64: base64Content
-    });
+      return NextResponse.json(data);
+    } catch (error) {
+      return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+    }
   } catch (error) {
     return NextResponse.json(
       { error: 'Failed to process request' },

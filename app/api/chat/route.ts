@@ -8,35 +8,29 @@ const anthropic = new Anthropic({
 export async function POST(request: Request) {
   const { messages, modelId } = await request.json();
   
-  const formattedMessages = messages.map((message: Message) => {
-    if (!message.experimental_attachments?.length) {
+  const formattedMessages = messages.map((message) => {
+    if (message.experimental_attachments?.length) {
       return {
         role: message.role,
-        content: message.content
+        content: message.content,
+        experimental_attachments: message.experimental_attachments.map((attachment) => ({
+          type: "document",
+          source: {
+            type: "base64",
+            media_type: attachment.contentType,
+            data: attachment.data, // Assuming base64 encoding is already handled during upload.
+          },
+        })),
       };
     }
-
     return {
       role: message.role,
-      content: [
-        ...message.experimental_attachments.map(attachment => ({
-          type: 'document',
-          source: {
-            type: 'base64',
-            media_type: 'application/pdf',
-            data: attachment.base64
-          }
-        })),
-        {
-          type: 'text',
-          text: message.content
-        }
-      ]
+      content: message.content,
     };
   });
 
   const response = await anthropic.messages.create({
-    model: "claude-3-sonnet-20240229",
+    model: "claude-3-5-sonnet-20241022",
     max_tokens: 4096,
     messages: formattedMessages
   });

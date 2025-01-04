@@ -153,12 +153,12 @@ export function MultimodalInput({
 
       if (response.ok) {
         const data = await response.json();
-        const { url, pathname, contentType } = data;
+        const { base64, contentType } = data;
 
         return {
-          url,
-          name: pathname,
-          contentType: contentType,
+          data: base64,
+          contentType,
+          name: file.name,
         };
       }
       const { error } = await response.json();
@@ -244,7 +244,7 @@ export function MultimodalInput({
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex flex-row gap-2 overflow-x-scroll items-end">
           {attachments.map((attachment) => (
-            <PreviewAttachment key={attachment.url} attachment={attachment} />
+            <PreviewAttachment key={attachment.name} attachment={attachment} />
           ))}
 
           {uploadQueue.map((filename) => (

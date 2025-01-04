@@ -1,43 +1,70 @@
-import { Message } from '@/types/chat';
-import { Anthropic } from '@anthropic-ai/sdk';
+// File: /app/api/chat/route.ts
+import { NextResponse } from 'next/server';
 
-const anthropic = new Anthropic({
-  apiKey: process.env.ANTHROPIC_API_KEY!,
-});
+interface Attachment {
+  type: string;
+  source: {
+    type: string;
+    media_type: string;
+    data: string;
+  };
+}
+
+interface Message {
+  role: string;
+  content: string;
+  experimental_attachments?: Attachment[];
+}
 
 export async function POST(request: Request) {
-  const { messages, modelId } = await request.json();
-  
-  const formattedMessages = messages.map((message) => {
-    if (message.experimental_attachments?.length) {
+  try {
+    const { messages, modelId }: { messages: Message[]; modelId: string } = await request.json();
+
+    const formattedMessages = messages.map((message) => {
+      if (message.experimental_attachments?.length) {
+        return {
+          role: message.role,
+          content: [
+            ...message.experimental_attachments.map((attachment) => ({
+              type: 'document',
+              source: {
+                type: 'base64',
+                media_type: attachment.source.media_type,
+                data: attachment.source.data,
+              },
+            })),
+            {
+              type: 'text',
+              text: message.content,
+            },
+          ],
+        };
+      }
+
       return {
         role: message.role,
         content: message.content,
-        experimental_attachments: message.experimental_attachments.map((attachment) => ({
-          type: "document",
-          source: {
-            type: "base64",
-            media_type: attachment.contentType,
-            data: attachment.data, // Assuming base64 encoding is already handled during upload.
-          },
-        })),
       };
-    }
-    return {
-      role: message.role,
-      content: message.content,
-    };
-  });
+    });
 
-  const response = await anthropic.messages.create({
-    model: "claude-3-5-sonnet-20241022",
-    max_tokens: 4096,
-    messages: formattedMessages
-  });
+    // Simulating sending the formatted messages to the Anthropic API
+    const response = await fetch('https://api.anthropic.com/v1/messages', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'x-api-key': process.env.ANTHROPIC_API_KEY || '',
+      },
+      body: JSON.stringify({
+        model: modelId,
+        max_tokens: 1024,
+        messages: formattedMessages,
+      }),
+    });
 
-  return new Response(response.content[0].text, {
-    headers: {
-      'Content-Type': 'text/plain',
-    }
-  });
+    const result = await response.json();
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error('Error processing chat request:', error);
+    return NextResponse.json({ error: 'Failed to process chat request.' }, { status: 500 });
+  }
 }

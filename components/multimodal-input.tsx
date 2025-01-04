@@ -155,10 +155,32 @@ export function MultimodalInput({
         const data = await response.json();
         const { url, contentType, name } = data;
 
+        // For PDF files, convert to base64
+        if (contentType === 'application/pdf') {
+          const fileData = await file.arrayBuffer();
+          const base64 = btoa(String.fromCharCode(...new Uint8Array(fileData)));
+          
+          return {
+            type: contentType,
+            source: {
+              type: 'base64',
+              media_type: contentType,
+              data: base64
+            },
+            name
+          };
+        }
+
+        // For other files (images), use URL
         return {
-          url, // URL returned by the backend
+          url,
           contentType,
           name,
+          source: {
+            type: 'url',
+            media_type: contentType,
+            url
+          }
         };
       }
       const { error } = await response.json();
@@ -177,8 +199,9 @@ export function MultimodalInput({
       try {
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments
-          .filter((attachment) => attachment !== undefined);
+        const successfullyUploadedAttachments = uploadedAttachments.filter(
+          (attachment) => attachment !== undefined
+        );
 
         setAttachments((currentAttachments) => [
           ...currentAttachments,

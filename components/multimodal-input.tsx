@@ -1,3 +1,4 @@
+// File: /components/multimodal-input.tsx
 'use client';
 
 import type {
@@ -100,13 +101,10 @@ export function MultimodalInput({
   useEffect(() => {
     if (textareaRef.current) {
       const domValue = textareaRef.current.value;
-      // Prefer DOM value over localStorage to handle hydration
       const finalValue = domValue || localStorageInput || '';
       setInput(finalValue);
       adjustHeight();
     }
-    // Only run once after hydration
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
   useEffect(() => {
@@ -240,6 +238,7 @@ export function MultimodalInput({
         multiple
         onChange={handleFileChange}
         tabIndex={-1}
+        accept=".pdf, image/png, image/jpeg"
       />
 
       {(attachments.length > 0 || uploadQueue.length > 0) && (

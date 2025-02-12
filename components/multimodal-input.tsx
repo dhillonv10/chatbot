@@ -152,41 +152,40 @@ export function MultimodalInput({
       });
 
       if (response.ok) {
-        const data = await response.json();
-        const { url, contentType, name } = data;
-
-        // For PDF files, convert to base64
-        if (contentType === 'application/pdf') {
-          const fileData = await file.arrayBuffer();
-          const base64 = btoa(String.fromCharCode(...new Uint8Array(fileData)));
-          
-          return {
-            type: contentType,
-            source: {
-              type: 'base64',
-              media_type: contentType,
-              data: base64
-            },
-            name
-          };
-        }
-
-        // For other files (images), use URL
-        return {
-          url,
-          contentType,
-          name,
-          source: {
-            type: 'url',
-            media_type: contentType,
-            url
+        const respContentType = response.headers.get('Content-Type') || '';
+        if (respContentType.includes('text/event-stream')) {
+          const reader = response.body.getReader();
+          const decoder = new TextDecoder('utf-8');
+          let resultText = '';
+          let done = false;
+          while (!done) {
+            const { value, done: doneReading } = await reader.read();
+            done = doneReading;
+            resultText += decoder.decode(value || new Uint8Array(), { stream: !done });
           }
-        };
+          const events = resultText.split('\n\n');
+          let finalContent = '';
+          for (const event of events) {
+            const trimmed = event.trim();
+            if (trimmed.startsWith('data: ')) {
+              const data = trimmed.slice(6).trim();
+              if (data === '[DONE]') break;
+              finalContent += data;
+            }
+          }
+          return {
+            type: 'stream',
+            content: finalContent,
+          };
+        } else {
+          const data = await response.json();
+          return data;
+        }
+      } else {
+        throw new Error('File upload failed');
       }
-      const { error } = await response.json();
-      toast.error(error);
     } catch (error) {
-      toast.error('Failed to upload file, please try again!');
+      throw new Error('File upload error');
     }
   };
 

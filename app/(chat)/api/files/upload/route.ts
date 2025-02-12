@@ -1,9 +1,9 @@
 // File: /app/(chat)/api/files/upload/route.ts
-import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
 
 import { auth } from '@/app/(auth)/auth';
+import { customModel } from '@/lib/ai/index';
 
 // Update the file schema to include PDFs
 const FileSchema = z.object({
@@ -46,24 +46,28 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: errorMessage }, { status: 400 });
         }
 
-        // Get filename from formData since Blob doesn't have name property
-        const filename = (formData.get('file') as File).name;
+        const uploadedFile = formData.get('file') as File;
+        const filename = uploadedFile.name;
         const fileBuffer = await file.arrayBuffer();
 
-        try {
-            const data = await put(`${filename}`, fileBuffer, {
-                access: 'public',
-            });
+        // Convert the file buffer to a base64 encoded string
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
 
-            // Ensure the URL is returned in the response
-            return NextResponse.json({
-                url: data.url,
-                contentType: file.type,
-                name: filename,
-            });
-        } catch (error) {
-            return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
-        }
+        // Prepare a message with attached file content in base64 format
+        const message = {
+            role: 'user',
+            content: `User uploaded file: ${filename}\nContent (base64): ${base64}`
+        };
+
+        // Invoke Anthropic Claude API using the customModel with identifier 'claude-v1'
+        const model = customModel('claude-v1');
+        const stream = await model.invoke({ messages: [message] });
+
+        // Return streaming response with proper headers for SSE
+        return new Response(stream, {
+            headers: { 'Content-Type': 'text/event-stream' }
+        });
+
     } catch (error) {
         return NextResponse.json(
             { error: 'Failed to process request' },

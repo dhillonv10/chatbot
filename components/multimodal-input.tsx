@@ -213,7 +213,7 @@ export function MultimodalInput({
 
         const attachment: Attachment = {
           name: file.name,
-          type: file.type,
+          contentType: file.type,
           base64: base64
         };
 

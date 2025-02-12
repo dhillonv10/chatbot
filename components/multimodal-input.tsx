@@ -184,7 +184,7 @@ export function MultimodalInput({
                       id: parsed.id,
                       role: 'assistant',
                       content: parsed.content,
-                      createdAt: new Date().toISOString()
+                      createdAt: new Date()
                     };
                     setMessages(messages => [...messages, newMessage]);
                   }
@@ -203,7 +203,7 @@ export function MultimodalInput({
           id: crypto.randomUUID(),
           role: 'user',
           content: `Uploaded file: ${file.name}`,
-          createdAt: new Date().toISOString()
+          createdAt: new Date()
         };
         setMessages(messages => [...messages, uploadMessage]);
 

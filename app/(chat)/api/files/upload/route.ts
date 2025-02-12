@@ -1,11 +1,11 @@
 // File: /app/(chat)/api/files/upload/route.ts
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-
 import { auth } from '@/app/(auth)/auth';
-import { customModel } from '@/lib/ai/index';
+import { customModel } from '@/lib/ai';
+import type { FileUploadResponse } from '@/types/file';
 
-// Update the file schema to include PDFs
+// Update the file schema to include PDFs and images
 const FileSchema = z.object({
     file: z
         .instanceof(Blob)
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     try {
         const formData = await request.formData();
-        const file = formData.get('file') as Blob;
+        const file = formData.get('file') as File;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -46,32 +46,39 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: errorMessage }, { status: 400 });
         }
 
-        const uploadedFile = formData.get('file') as File;
-        const filename = uploadedFile.name;
+        // Convert file to base64
         const fileBuffer = await file.arrayBuffer();
-
-        // Convert the file buffer to a base64 encoded string
         const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
 
-        // Prepare a message with attached file content in base64 format
+        // Prepare the message for Claude
         const message = {
             id: crypto.randomUUID(),
             role: 'user' as const,
-            content: `User uploaded file: ${filename}\nContent (base64): ${base64}`
+            content: `I'm sending you a ${file.type} file named "${file.name}". Please analyze its contents and provide a detailed response.\n\nFile contents (base64): ${base64}`
         };
 
-        // Invoke Anthropic Claude API using the customModel with identifier 'claude-v1'
-        const model = customModel('claude-v1');
-        const stream = await model.invoke({ messages: [message] });
+        // Send to Claude and get streaming response
+        const model = customModel('claude-3-sonnet-20240229');
+        const stream = await model.invoke({ 
+            messages: [message],
+            options: {
+                system: "You are an expert at analyzing files. For images, describe what you see in detail. For PDFs, summarize the key points and provide relevant insights."
+            }
+        });
 
-        // Return streaming response with proper headers for SSE
+        // Return the stream with appropriate headers
         return new Response(stream, {
-            headers: { 'Content-Type': 'text/event-stream' }
+            headers: {
+                'Content-Type': 'text/event-stream',
+                'Cache-Control': 'no-cache',
+                'Connection': 'keep-alive',
+            }
         });
 
     } catch (error) {
+        console.error('File processing error:', error);
         return NextResponse.json(
-            { error: 'Failed to process request' },
+            { error: 'Failed to process file' },
             { status: 500 },
         );
     }

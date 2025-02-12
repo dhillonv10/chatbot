@@ -151,41 +151,75 @@ export function MultimodalInput({
         body: formData,
       });
 
-      if (response.ok) {
-        const respContentType = response.headers.get('Content-Type') || '';
-        if (respContentType.includes('text/event-stream')) {
-          const reader = response.body.getReader();
-          const decoder = new TextDecoder('utf-8');
-          let resultText = '';
-          let done = false;
-          while (!done) {
-            const { value, done: doneReading } = await reader.read();
-            done = doneReading;
-            resultText += decoder.decode(value || new Uint8Array(), { stream: !done });
-          }
-          const events = resultText.split('\n\n');
-          let finalContent = '';
-          for (const event of events) {
-            const trimmed = event.trim();
-            if (trimmed.startsWith('data: ')) {
-              const data = trimmed.slice(6).trim();
-              if (data === '[DONE]') break;
-              finalContent += data;
+      if (!response.ok) {
+        throw new Error('Upload failed');
+      }
+
+      const contentType = response.headers.get('Content-Type');
+      if (contentType?.includes('text/event-stream')) {
+        // Handle streaming response
+        const reader = response.body!.getReader();
+        const decoder = new TextDecoder();
+        let fullContent = '';
+
+        try {
+          while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
+            
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
+            
+            for (const line of lines) {
+              if (line.startsWith('data: ')) {
+                const data = line.slice(6);
+                if (data === '[DONE]') break;
+                
+                try {
+                  const parsed = JSON.parse(data);
+                  if (parsed.content) {
+                    fullContent = parsed.content;
+                    // Update the messages state to show Claude's response
+                    const newMessage: Message = {
+                      id: parsed.id,
+                      role: 'assistant',
+                      content: parsed.content,
+                      createdAt: new Date().toISOString()
+                    };
+                    setMessages(messages => [...messages, newMessage]);
+                  }
+                } catch (e) {
+                  console.error('Failed to parse SSE data:', e);
+                }
+              }
             }
           }
-          return {
-            type: 'stream',
-            content: finalContent,
-          };
-        } else {
-          const data = await response.json();
-          return data;
+        } finally {
+          reader.releaseLock();
         }
+
+        // Add the file upload message to the chat
+        const uploadMessage: Message = {
+          id: crypto.randomUUID(),
+          role: 'user',
+          content: `Uploaded file: ${file.name}`,
+          createdAt: new Date().toISOString()
+        };
+        setMessages(messages => [...messages, uploadMessage]);
+
+        return {
+          id: crypto.randomUUID(),
+          name: file.name,
+          type: file.type,
+          content: fullContent
+        };
       } else {
-        throw new Error('File upload failed');
+        throw new Error('Expected streaming response');
       }
     } catch (error) {
-      throw new Error('File upload error');
+      console.error('File upload error:', error);
+      toast.error('Failed to upload file. Please try again.');
+      throw error;
     }
   };
 

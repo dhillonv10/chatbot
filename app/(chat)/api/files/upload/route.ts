@@ -3,7 +3,7 @@ import { NextResponse } from 'next/server';
 import { z } from 'zod';
 import { auth } from '@/app/(auth)/auth';
 import { customModel } from '@/lib/ai';
-import type { FileUploadResponse } from '@/types/file';
+import type { Attachment } from '@/types/chat';
 
 // Update the file schema to include PDFs and images
 const FileSchema = z.object({

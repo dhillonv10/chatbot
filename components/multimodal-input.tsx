@@ -181,7 +181,7 @@ export function MultimodalInput({
                     fullContent = parsed.content;
                     // Update the messages state to show Claude's response
                     const newMessage: Message = {
-                      id: parsed.id,
+                      id: crypto.randomUUID(),
                       role: 'assistant',
                       content: parsed.content,
                       createdAt: new Date()
@@ -207,12 +207,17 @@ export function MultimodalInput({
         };
         setMessages(messages => [...messages, uploadMessage]);
 
-        return {
-          id: crypto.randomUUID(),
+        // Convert file to base64 for the attachment
+        const fileBuffer = await file.arrayBuffer();
+        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
+
+        const attachment: Attachment = {
           name: file.name,
           type: file.type,
-          content: fullContent
+          base64: base64
         };
+
+        return attachment;
       } else {
         throw new Error('Expected streaming response');
       }

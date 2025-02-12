@@ -56,7 +56,7 @@ export async function POST(request: Request) {
         // Prepare a message with attached file content in base64 format
         const message = {
             id: crypto.randomUUID(),
-            role: 'user',
+            role: 'user' as const,
             content: `User uploaded file: ${filename}\nContent (base64): ${base64}`
         };
 

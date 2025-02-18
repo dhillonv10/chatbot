@@ -2,11 +2,11 @@
 'use client';
 
 import type {
-  Attachment,
   ChatRequestOptions,
   CreateMessage,
   Message,
 } from 'ai';
+import type { Attachment } from '../types/chat';
 import cx from 'classnames';
 import { motion } from 'framer-motion';
 import type React from 'react';

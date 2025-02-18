@@ -1,5 +1,5 @@
 import type {
-  Attachment,
+  Attachment, // Import the correct Attachment type from '@/types/chat'
   ChatRequestOptions,
   CreateMessage,
   Message,
@@ -57,8 +57,8 @@ export function Block({
   handleSubmit,
   isLoading,
   stop,
-  attachments,
-  setAttachments,
+  attachments, // Explicitly typed as Attachment[]
+  setAttachments, // Explicitly typed as Dispatch<SetStateAction<Attachment[]>>
   append,
   block,
   setBlock,
@@ -71,8 +71,8 @@ export function Block({
   setInput: (input: string) => void;
   isLoading: boolean;
   stop: () => void;
-  attachments: Array<Attachment>;
-  setAttachments: Dispatch<SetStateAction<Array<Attachment>>>;
+  attachments: Attachment[]; // Explicitly typed as Attachment[]
+  setAttachments: Dispatch<SetStateAction<Attachment[]>>; // Explicitly typed as Dispatch<SetStateAction<Attachment[]>>
   block: UIBlock;
   setBlock: Dispatch<SetStateAction<UIBlock>>;
   messages: Array<Message>;

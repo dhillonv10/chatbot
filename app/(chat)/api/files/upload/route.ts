@@ -65,18 +65,13 @@ export async function POST(request: Request): Promise<NextResponse<UploadRespons
         const filename = `${nameWithoutExtension}-${hash}.${extension}`;
         
         const fileBuffer = await file.arrayBuffer();
-        
-        // Set appropriate caching headers based on file type
-        const cacheControl = file.type === 'application/pdf' 
-            ? 'public, max-age=31536000' // 1 year for PDFs
-            : 'public, max-age=604800';  // 1 week for other files
 
         try {
             console.log(`Uploading file: ${filename} (${file.type})`);
             
+            // Use only supported options in put command
             const data = await put(filename, fileBuffer, {
                 access: 'public',
-                cacheControl,
                 contentType: file.type,
             });
 

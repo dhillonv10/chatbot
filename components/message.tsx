@@ -1,3 +1,4 @@
+// File: /components/message.tsx (updated portions)
 'use client';
 
 import type { Message } from 'ai';
@@ -9,7 +10,7 @@ import type { Vote } from '@/lib/db/schema';
 
 import type { UIBlock } from './block';
 import { DocumentToolCall, DocumentToolResult } from './document';
-import { SparklesIcon } from './icons';
+import { SparklesIcon, FileIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
@@ -30,6 +31,25 @@ export const PreviewMessage = ({
   vote: Vote | undefined;
   isLoading: boolean;
 }) => {
+  // Function to detect if this message is a PDF analysis response
+  const isPdfAnalysisResponse = () => {
+    // Check if the previous message has PDF attachments
+    const isPreviousMessagePdf = message.role === 'assistant' && 
+      message.previousMessageHasAttachments &&
+      message.previousMessageAttachments?.some(att => 
+        att.contentType === 'application/pdf' || 
+        (att.name && att.name.toLowerCase().endsWith('.pdf'))
+      );
+    
+    // If the message content mentions PDF analysis
+    const contentMentionsPdf = typeof message.content === 'string' && 
+      (message.content.includes('PDF') || 
+       message.content.includes('document') ||
+       message.content.toLowerCase().includes('based on the pdf'));
+    
+    return isPreviousMessagePdf || contentMentionsPdf;
+  };
+
   return (
     <motion.div
       className="w-full mx-auto max-w-3xl px-4 group/message"
@@ -49,6 +69,13 @@ export const PreviewMessage = ({
         )}
 
         <div className="flex flex-col gap-2 w-full">
+          {/* Special handling for PDF analysis messages */}
+          {message.role === 'assistant' && isPdfAnalysisResponse() && (
+            <div className="bg-blue-50 dark:bg-blue-900/20 p-2 rounded-md text-xs text-blue-500 dark:text-blue-300 mb-2">
+              Analysis based on uploaded PDF
+            </div>
+          )}
+
           {message.content && (
             <div className="flex flex-col gap-4">
               <Markdown>{message.content as string}</Markdown>
@@ -177,6 +204,36 @@ export const ThinkingMessage = () => {
         <div className="flex flex-col gap-2 w-full">
           <div className="flex flex-col gap-4 text-muted-foreground">
             Thinking...
+          </div>
+        </div>
+      </div>
+    </motion.div>
+  );
+};
+
+// Special thinking message for PDF processing
+export const ProcessingPdfMessage = () => {
+  const role = 'assistant';
+
+  return (
+    <motion.div
+      className="w-full mx-auto max-w-3xl px-4 group/message"
+      initial={{ y: 5, opacity: 0 }}
+      animate={{ y: 0, opacity: 1, transition: { delay: 0.5 } }}
+      data-role={role}
+    >
+      <div className="flex gap-4 rounded-xl">
+        <div className="size-8 flex items-center rounded-full justify-center ring-1 shrink-0 ring-border">
+          <SparklesIcon size={14} />
+        </div>
+
+        <div className="flex flex-col gap-2 w-full">
+          <div className="flex flex-row items-center gap-2 text-muted-foreground">
+            <FileIcon size={16} />
+            <span>Processing PDF...</span>
+            <div className="animate-spin ml-2">
+              <LoaderIcon size={14} />
+            </div>
           </div>
         </div>
       </div>

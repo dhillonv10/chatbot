@@ -1,3 +1,4 @@
+// File: /app/(chat)/api/chat/route.ts
 import {
   type Message,
   convertToCoreMessages,
@@ -21,7 +22,7 @@ import {
 
 import { generateTitleFromUserMessage } from '../../actions';
 
-export const maxDuration = 60;
+export const maxDuration = 300; // Increased to 300 seconds (5 minutes) to handle larger PDFs
 
 export async function POST(request: Request) {
   console.log('=== API Route Started ===');
@@ -63,9 +64,45 @@ export async function POST(request: Request) {
     ],
   });
 
-  console.log('Creating stream response');
+  console.log('Preparing message for Claude with attachments');
+
+  // Convert attachments for Claude's API format
+  let formattedMessages = messages.map(message => {
+    if (message.experimental_attachments?.length) {
+      // For messages with attachments, create a multipart content array
+      return {
+        role: message.role === 'user' ? 'user' : 'assistant',
+        content: [
+          // Add each attachment as a document content part
+          ...message.experimental_attachments.map(attachment => ({
+            type: 'document',
+            source: {
+              type: 'url',
+              media_type: attachment.contentType,
+              url: attachment.url
+            }
+          })),
+          // Add the text content
+          {
+            type: 'text',
+            text: message.content
+          }
+        ]
+      };
+    } else {
+      // For regular messages, use simple text format
+      return {
+        role: message.role === 'user' ? 'user' : 'assistant',
+        content: message.content
+      };
+    }
+  });
+
+  console.log('Creating stream response with formatted messages:', 
+    JSON.stringify(formattedMessages, null, 2).substring(0, 500) + '...');
+
   const response = await customModel(model.apiIdentifier).invoke({
-    messages,
+    messages: formattedMessages,
     options: { system: systemPrompt }
   });
 

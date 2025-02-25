@@ -1,3 +1,4 @@
+// File: /lib/ai/index.ts
 import { type Message } from 'ai';
 import { Anthropic } from '@anthropic-ai/sdk';
 
@@ -43,39 +44,6 @@ function createChunk(messageId: string, content: string): AIStreamChunk {
   };
 }
 
-function inspectSSE(data: string) {
-  try {
-    // Handle special cases
-    if (data.includes('[DONE]')) return true;
-    if (!data.startsWith('data: ')) return false;
-    
-    // Extract JSON part, being more lenient with the ending
-    const jsonStart = data.indexOf('{');
-    const jsonEnd = data.lastIndexOf('}');
-    
-    if (jsonStart === -1 || jsonEnd === -1 || jsonEnd <= jsonStart) {
-      console.error('Invalid JSON boundaries in SSE data');
-      return false;
-    }
-    
-    const jsonStr = data.slice(jsonStart, jsonEnd + 1);
-    const parsed = JSON.parse(jsonStr);
-    
-    if (!validateChunkData(parsed)) {
-      console.error('Invalid chunk structure:', parsed);
-      return false;
-    }
-    
-    return true;
-  } catch (e: unknown) {
-    console.error('SSE parse error:', {
-      error: e instanceof Error ? e.message : String(e),
-      data: data
-    });
-    return false;
-  }
-}
-
 // Helper to safely encode content for SSE
 function encodeContent(content: string): string {
   return content
@@ -90,22 +58,21 @@ export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: Message[]; options?: { system?: string } }) {
+    async invoke({ messages, options }: { messages: any[]; options?: { system?: string } }) {
       console.log('=== Starting new chat invocation ===');
-      console.log('Input messages:', messages);
+      console.log('Input messages length:', messages.length);
+      console.log('Last message sample:', JSON.stringify(messages[messages.length - 1]).substring(0, 500) + '...');
       
-      const formattedMessages = messages.map((msg) => ({
-        role: msg.role === 'user' ? ('user' as const) : ('assistant' as const),
-        content: msg.content,
-      }));
-
-      console.log('Formatted messages for Anthropic:', formattedMessages);
+      // No conversion needed here as we're now passing the correctly formatted messages
+      // directly from the API route
+      
+      console.log('Sending request to Anthropic API with model:', apiIdentifier);
       
       let response;
       try {
         response = await anthropic.messages.create({
           model: apiIdentifier,
-          messages: formattedMessages,
+          messages: messages,
           system: options?.system,
           max_tokens: 4096,
           stream: true,

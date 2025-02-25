@@ -1,4 +1,3 @@
-// File: /components/multimodal-input.tsx
 'use client';
 
 import type {
@@ -24,23 +23,30 @@ import { useLocalStorage, useWindowSize } from 'usehooks-ts';
 
 import { sanitizeUIMessages } from '@/lib/utils';
 
-import { ArrowUpIcon, PaperclipIcon, StopIcon } from './icons';
+import { ArrowUpIcon, PaperclipIcon, StopIcon, FileIcon } from './icons';
 import { PreviewAttachment } from './preview-attachment';
 import { Button } from './ui/button';
 import { Textarea } from './ui/textarea';
 
 const suggestedActions = [
   {
+    title: 'Upload a PDF',
+    label: 'to analyze its contents',
+    action: 'Please upload a PDF that you would like me to analyze.',
+    icon: <FileIcon size={16} />
+  },
+  {
     title: 'What are the symptoms',
     label: 'of a heart attack?',
     action: 'What are the symptoms of a heart attack?',
   },
-  {
-    title: 'How to manage',
-    label: 'type 2 diabetes?',
-    action: 'What are the best practices for managing type 2 diabetes?',
-  },
 ];
+
+// Function to check if attachment is a PDF
+function isPdfAttachment(attachment: Attachment) {
+  return attachment.contentType === 'application/pdf' || 
+         (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'));
+}
 
 export function MultimodalInput({
   chatId,
@@ -118,6 +124,20 @@ export function MultimodalInput({
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const [uploadQueue, setUploadQueue] = useState<Array<string>>([]);
+  const [hasPdf, setHasPdf] = useState(false);
+
+  // Update PDF state when attachments change
+  useEffect(() => {
+    const pdfAttachments = attachments.filter(att => isPdfAttachment(att));
+    setHasPdf(pdfAttachments.length > 0);
+    
+    // If we just uploaded a PDF, suggest an analysis prompt
+    if (pdfAttachments.length > 0 && input === '') {
+      const fileNames = pdfAttachments.map(pdf => pdf.name).join(', ');
+      const suggestedPrompt = `Please analyze this PDF${pdfAttachments.length > 1 ? 's' : ''}: ${fileNames}`;
+      setInput(suggestedPrompt);
+    }
+  }, [attachments, input, setInput]);
 
   const submitForm = useCallback(() => {
     window.history.replaceState({}, '', `/chat/${chatId}`);
@@ -156,7 +176,7 @@ export function MultimodalInput({
         const { url, contentType, name } = data;
 
         return {
-          url, // URL returned by the backend
+          url, 
           contentType,
           name,
         };
@@ -184,13 +204,24 @@ export function MultimodalInput({
           ...currentAttachments,
           ...successfullyUploadedAttachments,
         ]);
+        
+        // Check for PDF uploads and set auto-prompt
+        const pdfs = successfullyUploadedAttachments.filter(att => 
+          att.contentType === 'application/pdf' || 
+          (att.name && att.name.toLowerCase().endsWith('.pdf'))
+        );
+        
+        if (pdfs.length > 0 && input === '') {
+          const fileNames = pdfs.map(pdf => pdf.name).join(', ');
+          setInput(`Please analyze this PDF${pdfs.length > 1 ? 's' : ''}: ${fileNames}`);
+        }
       } catch (error) {
         console.error('Error uploading files!', error);
       } finally {
         setUploadQueue([]);
       }
     },
-    [setAttachments],
+    [setAttachments, input, setInput],
   );
 
   return (
@@ -211,16 +242,22 @@ export function MultimodalInput({
                 <Button
                   variant="ghost"
                   onClick={async () => {
-                    window.history.replaceState({}, '', `/chat/${chatId}`);
-
-                    append({
-                      role: 'user',
-                      content: suggestedAction.action,
-                    });
+                    if (suggestedAction.title === "Upload a PDF") {
+                      fileInputRef.current?.click();
+                    } else {
+                      window.history.replaceState({}, '', `/chat/${chatId}`);
+                      append({
+                        role: 'user',
+                        content: suggestedAction.action,
+                      });
+                    }
                   }}
-                  className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-1 sm:flex-col w-full h-auto justify-start items-start"
+                  className="text-left border rounded-xl px-4 py-3.5 text-sm flex-1 gap-2 sm:flex-col w-full h-auto justify-start items-start"
                 >
-                  <span className="font-medium">{suggestedAction.title}</span>
+                  <div className="flex items-center gap-2 font-medium">
+                    {suggestedAction.icon && <span>{suggestedAction.icon}</span>}
+                    <span>{suggestedAction.title}</span>
+                  </div>
                   <span className="text-muted-foreground">
                     {suggestedAction.label}
                   </span>
@@ -260,13 +297,23 @@ export function MultimodalInput({
         </div>
       )}
 
+      {hasPdf && (
+        <div className="text-xs text-blue-600 dark:text-blue-400 flex items-center gap-1.5 ml-2 -mb-2">
+          <FileIcon size={12} />
+          <span>PDF uploaded and ready for analysis</span>
+        </div>
+      )}
+
       <Textarea
         ref={textareaRef}
-        placeholder="Send a message..."
+        placeholder={hasPdf ? "Ask me about the PDF content..." : "Send a message..."}
         value={input}
         onChange={handleInput}
         className={cx(
           'min-h-[24px] max-h-[calc(75dvh)] overflow-hidden resize-none rounded-xl text-base bg-muted',
+          {
+            'border-blue-400 dark:border-blue-600': hasPdf
+          },
           className,
         )}
         rows={3}
@@ -309,7 +356,10 @@ export function MultimodalInput({
       )}
 
       <Button
-        className="rounded-full p-1.5 h-fit absolute bottom-2 right-11 m-0.5 dark:border-zinc-700"
+        className={cx(
+          "rounded-full p-1.5 h-fit absolute bottom-2 right-11 m-0.5 dark:border-zinc-700",
+          {"text-blue-600 dark:text-blue-400": hasPdf}
+        )}
         onClick={(event) => {
           event.preventDefault();
           fileInputRef.current?.click();

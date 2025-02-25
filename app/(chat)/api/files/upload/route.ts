@@ -1,11 +1,11 @@
 // File: /app/(chat)/api/files/upload/route.ts
+import { put } from '@vercel/blob';
 import { NextResponse } from 'next/server';
 import { z } from 'zod';
-import { auth } from '@/app/(auth)/auth';
-import { customModel } from '@/lib/ai';
-import type { Attachment } from '@/types/chat';
 
-// Update the file schema to include PDFs and images
+import { auth } from '@/app/(auth)/auth';
+
+// Update the file schema to include PDFs
 const FileSchema = z.object({
     file: z
         .instanceof(Blob)
@@ -30,7 +30,7 @@ export async function POST(request: Request) {
 
     try {
         const formData = await request.formData();
-        const file = formData.get('file') as File;
+        const file = formData.get('file') as Blob;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -46,39 +46,27 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: errorMessage }, { status: 400 });
         }
 
-        // Convert file to base64
+        // Get filename from formData since Blob doesn't have name property
+        const filename = (formData.get('file') as File).name;
         const fileBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
 
-        // Prepare the message for Claude
-        const message = {
-            id: crypto.randomUUID(),
-            role: 'user' as const,
-            content: `I'm sending you a ${file.type} file named "${file.name}". Please analyze its contents and provide a detailed response.\n\nFile contents (base64): ${base64}`
-        };
+        try {
+            const data = await put(`${filename}`, fileBuffer, {
+                access: 'public',
+            });
 
-        // Send to Claude and get streaming response
-        const model = customModel('claude-3-sonnet-20240229');
-        const stream = await model.invoke({ 
-            messages: [message],
-            options: {
-                system: "You are an expert at analyzing files. For images, describe what you see in detail. For PDFs, summarize the key points and provide relevant insights."
-            }
-        });
-
-        // Return the stream with appropriate headers
-        return new Response(stream, {
-            headers: {
-                'Content-Type': 'text/event-stream',
-                'Cache-Control': 'no-cache',
-                'Connection': 'keep-alive',
-            }
-        });
-
+            // Ensure the URL is returned in the response
+            return NextResponse.json({
+                url: data.url,
+                contentType: file.type,
+                name: filename,
+            });
+        } catch (error) {
+            return NextResponse.json({ error: 'Upload failed' }, { status: 500 });
+        }
     } catch (error) {
-        console.error('File processing error:', error);
         return NextResponse.json(
-            { error: 'Failed to process file' },
+            { error: 'Failed to process request' },
             { status: 500 },
         );
     }

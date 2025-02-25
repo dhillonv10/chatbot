@@ -2,11 +2,11 @@
 'use client';
 
 import type {
+  Attachment,
   ChatRequestOptions,
   CreateMessage,
   Message,
 } from 'ai';
-import type { Attachment } from '../types/chat';
 import cx from 'classnames';
 import { motion } from 'framer-motion';
 import type React from 'react';
@@ -151,80 +151,20 @@ export function MultimodalInput({
         body: formData,
       });
 
-      if (!response.ok) {
-        throw new Error('Upload failed');
-      }
+      if (response.ok) {
+        const data = await response.json();
+        const { url, contentType, name } = data;
 
-      const contentType = response.headers.get('Content-Type');
-      if (contentType?.includes('text/event-stream')) {
-        // Handle streaming response
-        const reader = response.body!.getReader();
-        const decoder = new TextDecoder();
-        let fullContent = '';
-
-        try {
-          while (true) {
-            const { done, value } = await reader.read();
-            if (done) break;
-            
-            const chunk = decoder.decode(value, { stream: true });
-            const lines = chunk.split('\n');
-            
-            for (const line of lines) {
-              if (line.startsWith('data: ')) {
-                const data = line.slice(6);
-                if (data === '[DONE]') break;
-                
-                try {
-                  const parsed = JSON.parse(data);
-                  if (parsed.content) {
-                    fullContent = parsed.content;
-                    // Update the messages state to show Claude's response
-                    const newMessage: Message = {
-                      id: crypto.randomUUID(),
-                      role: 'assistant',
-                      content: parsed.content,
-                      createdAt: new Date()
-                    };
-                    setMessages(messages => [...messages, newMessage]);
-                  }
-                } catch (e) {
-                  console.error('Failed to parse SSE data:', e);
-                }
-              }
-            }
-          }
-        } finally {
-          reader.releaseLock();
-        }
-
-        // Add the file upload message to the chat
-        const uploadMessage: Message = {
-          id: crypto.randomUUID(),
-          role: 'user',
-          content: `Uploaded file: ${file.name}`,
-          createdAt: new Date()
+        return {
+          url, // URL returned by the backend
+          contentType,
+          name,
         };
-        setMessages(messages => [...messages, uploadMessage]);
-
-        // Convert file to base64 for the attachment
-        const fileBuffer = await file.arrayBuffer();
-        const base64 = btoa(String.fromCharCode(...new Uint8Array(fileBuffer)));
-
-        const attachment: Attachment = {
-          name: file.name,
-          type: file.type,
-          base64: base64
-        };
-
-        return attachment;
-      } else {
-        throw new Error('Expected streaming response');
       }
+      const { error } = await response.json();
+      toast.error(error);
     } catch (error) {
-      console.error('File upload error:', error);
-      toast.error('Failed to upload file. Please try again.');
-      throw error;
+      toast.error('Failed to upload file, please try again!');
     }
   };
 
@@ -237,9 +177,8 @@ export function MultimodalInput({
       try {
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
-        const successfullyUploadedAttachments = uploadedAttachments.filter(
-          (attachment) => attachment !== undefined
-        );
+        const successfullyUploadedAttachments = uploadedAttachments
+          .filter((attachment) => attachment !== undefined);
 
         setAttachments((currentAttachments) => [
           ...currentAttachments,

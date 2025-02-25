@@ -1,4 +1,4 @@
-// File: /components/chat.tsx (key updates)
+// File: /components/chat.tsx
 'use client';
 
 import type { Attachment, Message } from 'ai';
@@ -9,7 +9,7 @@ import useSWR, { useSWRConfig } from 'swr';
 import { useWindowSize } from 'usehooks-ts';
 
 import { ChatHeader } from '@/components/chat-header';
-import { PreviewMessage, ThinkingMessage, ProcessingPdfMessage } from '@/components/message';
+import { PreviewMessage, ThinkingMessage } from '@/components/message';
 import { useScrollToBottom } from '@/components/use-scroll-to-bottom';
 import type { Vote } from '@/lib/db/schema';
 import { fetcher } from '@/lib/utils';
@@ -25,6 +25,12 @@ function hasPdfAttachments(attachments: Attachment[]) {
     attachment.contentType === 'application/pdf' || 
     (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'))
   );
+}
+
+// Add a safe check function for experimental_attachments
+function hasAttachments(message: Message): boolean {
+  return message.experimental_attachments !== undefined && 
+         message.experimental_attachments.length > 0;
 }
 
 export function Chat({
@@ -93,9 +99,9 @@ export function Chat({
                                         const assistantMessage = {
                                             ...lastMsg,
                                             content: data.content,
-                                            // Track if previous message had attachments
+                                            // Track if previous message had attachments - safely check
                                             previousMessageHasAttachments: prev.length > 1 && 
-                                              prev[prev.length - 2].experimental_attachments?.length > 0,
+                                              hasAttachments(prev[prev.length - 2]),
                                             previousMessageAttachments: prev.length > 1 ? 
                                               prev[prev.length - 2].experimental_attachments : undefined
                                         };
@@ -105,7 +111,7 @@ export function Chat({
                                         const assistantMessage = {
                                             ...data,
                                             previousMessageHasAttachments: prev.length > 0 && 
-                                              prev[prev.length - 1].experimental_attachments?.length > 0,
+                                              hasAttachments(prev[prev.length - 1]),
                                             previousMessageAttachments: prev.length > 0 ? 
                                               prev[prev.length - 1].experimental_attachments : undefined
                                         };
@@ -152,7 +158,8 @@ export function Chat({
         if (messages.length > 0) {
             const lastUserMessage = messages.filter(msg => msg.role === 'user').pop();
             
-            if (lastUserMessage?.experimental_attachments && 
+            if (lastUserMessage && 
+                lastUserMessage.experimental_attachments && 
                 hasPdfAttachments(lastUserMessage.experimental_attachments) && 
                 isLoading) {
                 setHasActivePdfSubmission(true);
@@ -238,7 +245,7 @@ export function Chat({
                     {isLoading && (
                         hasActivePdfSubmission ? (
                             // Special loading state for PDF processing
-                            <ProcessingPdfMessage />
+                            <ThinkingMessage isPdfProcessing={true} />
                         ) : (
                             messages.length > 0 &&
                             messages[messages.length - 1].role === 'user' && (

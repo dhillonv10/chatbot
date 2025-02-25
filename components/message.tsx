@@ -1,4 +1,4 @@
-// File: /components/message.tsx (updated portions)
+// File: /components/message.tsx
 'use client';
 
 import type { Message } from 'ai';
@@ -10,7 +10,7 @@ import type { Vote } from '@/lib/db/schema';
 
 import type { UIBlock } from './block';
 import { DocumentToolCall, DocumentToolResult } from './document';
-import { SparklesIcon, FileIcon } from './icons';
+import { SparklesIcon, FileIcon, LoaderIcon } from './icons';
 import { Markdown } from './markdown';
 import { MessageActions } from './message-actions';
 import { PreviewAttachment } from './preview-attachment';
@@ -179,12 +179,12 @@ export const PreviewMessage = ({
   );
 };
 
-export const ThinkingMessage = () => {
+export const ThinkingMessage = ({ isPdfProcessing = false }: { isPdfProcessing?: boolean }) => {
   const role = 'assistant';
 
   return (
     <motion.div
-      className="w-full mx-auto max-w-3xl px-4 group/message "
+      className="w-full mx-auto max-w-3xl px-4 group/message"
       initial={{ y: 5, opacity: 0 }}
       animate={{ y: 0, opacity: 1, transition: { delay: 1 } }}
       data-role={role}
@@ -202,9 +202,19 @@ export const ThinkingMessage = () => {
         </div>
 
         <div className="flex flex-col gap-2 w-full">
-          <div className="flex flex-col gap-4 text-muted-foreground">
-            Thinking...
-          </div>
+          {isPdfProcessing ? (
+            <div className="flex flex-row items-center gap-2 text-muted-foreground">
+              <FileIcon size={16} />
+              <span>Processing PDF...</span>
+              <div className="animate-spin ml-2">
+                <LoaderIcon size={14} />
+              </div>
+            </div>
+          ) : (
+            <div className="flex flex-col gap-4 text-muted-foreground">
+              Thinking...
+            </div>
+          )}
         </div>
       </div>
     </motion.div>

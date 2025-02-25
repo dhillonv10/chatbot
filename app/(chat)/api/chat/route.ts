@@ -67,7 +67,7 @@ export async function POST(request: Request) {
   console.log('Preparing message for Claude with attachments');
 
   // Convert attachments for Claude's API format
-  let formattedMessages = messages.map(message => {
+  let formattedMessages = messages.map((message: Message) => {
     if (message.experimental_attachments?.length) {
       // For messages with attachments, create a multipart content array
       return {
@@ -75,16 +75,16 @@ export async function POST(request: Request) {
         content: [
           // Add each attachment as a document content part
           ...message.experimental_attachments.map(attachment => ({
-            type: 'document',
+            type: 'document' as const,
             source: {
-              type: 'url',
+              type: 'url' as const,
               media_type: attachment.contentType,
               url: attachment.url
             }
           })),
           // Add the text content
           {
-            type: 'text',
+            type: 'text' as const,
             text: message.content
           }
         ]

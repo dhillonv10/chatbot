@@ -44,6 +44,28 @@ function createChunk(messageId: string, content: string): AIStreamChunk {
   };
 }
 
+// Define interfaces for multimodal message types
+interface TextContent {
+  type: 'text';
+  text: string;
+}
+
+interface DocumentContent {
+  type: 'document';
+  source: {
+    type: 'url';
+    media_type: string;
+    url: string;
+  };
+}
+
+type ContentPart = TextContent | DocumentContent;
+
+interface MultimodalMessage {
+  role: 'user' | 'assistant';
+  content: string | ContentPart[];
+}
+
 // Helper to safely encode content for SSE
 function encodeContent(content: string): string {
   return content
@@ -58,7 +80,7 @@ export const customModel = (apiIdentifier: string) => {
   return {
     id: apiIdentifier,
     provider: 'anthropic' as const,
-    async invoke({ messages, options }: { messages: any[]; options?: { system?: string } }) {
+    async invoke({ messages, options }: { messages: MultimodalMessage[]; options?: { system?: string } }) {
       console.log('=== Starting new chat invocation ===');
       console.log('Input messages length:', messages.length);
       console.log('Last message sample:', JSON.stringify(messages[messages.length - 1]).substring(0, 500) + '...');

@@ -18,7 +18,14 @@ const FileSchema = z.object({
         }),
 });
 
-export async function POST(request: Request) {
+interface UploadResponse {
+    url: string;
+    contentType: string;
+    name: string;
+    size?: number;
+}
+
+export async function POST(request: Request): Promise<NextResponse<UploadResponse | { error: string }>> {
     const session = await auth();
 
     if (!session) {
@@ -26,12 +33,12 @@ export async function POST(request: Request) {
     }
 
     if (request.body === null) {
-        return new Response('Request body is empty', { status: 400 });
+        return NextResponse.json({ error: 'Request body is empty' }, { status: 400 });
     }
 
     try {
         const formData = await request.formData();
-        const file = formData.get('file') as Blob;
+        const file = formData.get('file') as File | null;
 
         if (!file) {
             return NextResponse.json({ error: 'No file uploaded' }, { status: 400 });
@@ -47,8 +54,8 @@ export async function POST(request: Request) {
             return NextResponse.json({ error: errorMessage }, { status: 400 });
         }
 
-        // Get filename from formData since Blob doesn't have name property
-        const originalFilename = (formData.get('file') as File).name;
+        // Get filename from file
+        const originalFilename = file.name;
         
         // Add a hash to the filename to avoid collisions
         const filenameParts = originalFilename.split('.');

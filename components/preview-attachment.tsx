@@ -3,19 +3,21 @@ import type { Attachment } from 'ai';
 
 import { LoaderIcon, FileIcon } from './icons';
 
+interface PreviewAttachmentProps {
+  attachment: Attachment;
+  isUploading?: boolean;
+}
+
 export const PreviewAttachment = ({
   attachment,
   isUploading = false,
-}: {
-  attachment: Attachment;
-  isUploading?: boolean;
-}) => {
+}: PreviewAttachmentProps) => {
   const { name, url, contentType } = attachment;
   
   // Function to get file extension from name or contentType
-  const getFileExtension = () => {
+  const getFileExtension = (): string => {
     if (name && name.includes('.')) {
-      return name.split('.').pop()?.toLowerCase();
+      return name.split('.').pop()?.toLowerCase() || '';
     }
     if (contentType) {
       const parts = contentType.split('/');

@@ -166,59 +166,72 @@ export function MultimodalInput({
     formData.append('file', file);
 
     try {
+      console.log(`Uploading file: ${file.name} (${file.type})`);
       const response = await fetch('/api/files/upload', {
         method: 'POST',
         body: formData,
       });
 
-      if (response.ok) {
-        const data = await response.json();
-        const { url, contentType, name } = data;
-
-        return {
-          url, 
-          contentType,
-          name,
-        };
+      if (!response.ok) {
+        const { error } = await response.json();
+        toast.error(error || 'Failed to upload file');
+        throw new Error(error || 'Failed to upload file');
       }
-      const { error } = await response.json();
-      toast.error(error);
+
+      const data = await response.json();
+      const { url, contentType, name } = data;
+      
+      console.log(`File uploaded successfully: ${url} (${contentType})`);
+      return { url, contentType, name };
     } catch (error) {
+      console.error('Upload error:', error);
       toast.error('Failed to upload file, please try again!');
+      return undefined;
     }
   };
 
   const handleFileChange = useCallback(
     async (event: ChangeEvent<HTMLInputElement>) => {
       const files = Array.from(event.target.files || []);
+      if (files.length === 0) return;
 
       setUploadQueue(files.map((file) => file.name));
 
       try {
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
+        
         const successfullyUploadedAttachments = uploadedAttachments
-          .filter((attachment) => attachment !== undefined);
+          .filter(Boolean);
 
-        setAttachments((currentAttachments) => [
-          ...currentAttachments,
-          ...successfullyUploadedAttachments,
-        ]);
-        
-        // Check for PDF uploads and set auto-prompt
-        const pdfs = successfullyUploadedAttachments.filter(att => 
-          att.contentType === 'application/pdf' || 
-          (att.name && att.name.toLowerCase().endsWith('.pdf'))
-        );
-        
-        if (pdfs.length > 0 && input === '') {
-          const fileNames = pdfs.map(pdf => pdf.name).join(', ');
-          setInput(`Please analyze this PDF${pdfs.length > 1 ? 's' : ''}: ${fileNames}`);
+        if (successfullyUploadedAttachments.length > 0) {
+          setAttachments((currentAttachments) => [
+            ...currentAttachments,
+            ...successfullyUploadedAttachments,
+          ]);
+          
+          // Check for PDF uploads and set auto-prompt
+          const pdfs = successfullyUploadedAttachments.filter(att => 
+            att.contentType === 'application/pdf' || 
+            (att.name && att.name.toLowerCase().endsWith('.pdf'))
+          );
+          
+          if (pdfs.length > 0 && input === '') {
+            const fileNames = pdfs.map(pdf => pdf.name).join(', ');
+            setInput(`Please analyze this PDF${pdfs.length > 1 ? 's' : ''}: ${fileNames}`);
+          }
+          
+          toast.success(`Successfully uploaded ${successfullyUploadedAttachments.length} file(s)`);
         }
       } catch (error) {
         console.error('Error uploading files!', error);
+        toast.error('There was a problem uploading your files.');
       } finally {
         setUploadQueue([]);
+        // Reset the file input
+        if (fileInputRef.current) {
+          fileInputRef.current.value = '';
+        }
       }
     },
     [setAttachments, input, setInput],

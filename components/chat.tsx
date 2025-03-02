@@ -7,9 +7,10 @@ import { AnimatePresence } from 'framer-motion';
 import { useState, useEffect } from 'react';
 import useSWR, { useSWRConfig } from 'swr';
 import { useWindowSize } from 'usehooks-ts';
+import { toast } from 'sonner';
 
 import { ChatHeader } from '@/components/chat-header';
-import { PreviewMessage, ThinkingMessage } from '@/components/message';
+import { PreviewMessage, ThinkingMessage, ProcessingPdfMessage } from '@/components/message';
 import { useScrollToBottom } from '@/components/use-scroll-to-bottom';
 import type { Vote } from '@/lib/db/schema';
 import { fetcher } from '@/lib/utils';
@@ -44,24 +45,33 @@ export function Chat({
 }) {
     const { mutate } = useSWRConfig();
 
+    const [hasActivePdfSubmission, setHasActivePdfSubmission] = useState(false);
+    const [pdfProcessingError, setPdfProcessingError] = useState<string | null>(null);
+
     const {
         messages,
         setMessages,
-        handleSubmit,
+        handleSubmit: originalHandleSubmit,
         input,
         setInput,
         append,
         isLoading,
         stop,
         data: streamingData,
+        error,
     } = useChat({
         api: '/api/chat',
         body: { id, modelId: selectedModelId },
         initialMessages,
         onResponse: async (response) => {
             if (!response.ok) {
-                throw new Error(`HTTP error! status: ${response.status}`);
+                const text = await response.text();
+                console.error(`HTTP error! status: ${response.status}`, text);
+                toast.error('There was an error processing your request.');
+                setHasActivePdfSubmission(false);
+                return;
             }
+            
             // Process response stream
             const reader = response.body?.getReader();
             if (!reader) {
@@ -85,6 +95,7 @@ export function Chat({
                         if (!line) continue;
 
                         if (line === 'data: [DONE]') {
+                            setHasActivePdfSubmission(false);
                             await reader.cancel();
                             return;
                         }
@@ -128,16 +139,20 @@ export function Chat({
                 }
             } catch (error) {
                 console.error('Error reading stream:', error);
+                setHasActivePdfSubmission(false);
             } finally {
                 reader.releaseLock();
             }
         },
         onFinish: (message) => {
             console.log('Chat finished:', message);
+            setHasActivePdfSubmission(false);
             mutate('/api/history');
         },
         onError: (error) => {
             console.error('Chat error:', error);
+            setHasActivePdfSubmission(false);
+            setPdfProcessingError(error.message);
             setMessages((prev) => [
                 ...prev,
                 {
@@ -150,24 +165,6 @@ export function Chat({
             ]);
         },
     });
-
-    const [hasActivePdfSubmission, setHasActivePdfSubmission] = useState(false);
-
-    // Effect to track PDF submissions
-    useEffect(() => {
-        if (messages.length > 0) {
-            const lastUserMessage = messages.filter(msg => msg.role === 'user').pop();
-            
-            if (lastUserMessage && 
-                lastUserMessage.experimental_attachments && 
-                hasPdfAttachments(lastUserMessage.experimental_attachments) && 
-                isLoading) {
-                setHasActivePdfSubmission(true);
-            } else if (!isLoading) {
-                setHasActivePdfSubmission(false);
-            }
-        }
-    }, [messages, isLoading]);
 
     const { width: windowWidth = 1920, height: windowHeight = 1080 } =
         useWindowSize();
@@ -196,8 +193,29 @@ export function Chat({
 
     const [attachments, setAttachments] = useState<Array<Attachment>>([]);
 
+    // Effect to track PDF submissions
+    useEffect(() => {
+        if (messages.length > 0) {
+            const lastUserMessage = messages.filter(msg => msg.role === 'user').pop();
+            
+            if (lastUserMessage && 
+                lastUserMessage.experimental_attachments && 
+                hasPdfAttachments(lastUserMessage.experimental_attachments) && 
+                isLoading) {
+                setHasActivePdfSubmission(true);
+            } else if (!isLoading) {
+                setHasActivePdfSubmission(false);
+            }
+        }
+    }, [messages, isLoading]);
+
     // Create a custom submit handler that can handle PDF specific UX
     const handleSubmitWithPdfSupport = (event?: {preventDefault?: () => void}, options?: any) => {
+        // If there's an error, clear it
+        if (pdfProcessingError) {
+            setPdfProcessingError(null);
+        }
+        
         // Check if this submission contains PDFs
         const hasPdfs = hasPdfAttachments(attachments);
         
@@ -205,15 +223,17 @@ export function Chat({
         if (input.trim() === '' && hasPdfs) {
             const pdfNames = attachments
                 .filter(a => a.contentType === 'application/pdf' || 
-                           (a.name && a.name.toLowerCase().endsWith('.pdf')))
+                          (a.name && a.name.toLowerCase().endsWith('.pdf')))
                 .map(a => a.name)
                 .join(', ');
                 
             setInput(`Please analyze this PDF${attachments.length > 1 ? 's' : ''}: ${pdfNames}`);
         }
         
-        // Now call the original submit handler
-        handleSubmit(event, options);
+        // Now call the original submit handler with attachments
+        originalHandleSubmit(event, {
+            experimental_attachments: attachments
+        });
     };
 
     return (
@@ -245,7 +265,7 @@ export function Chat({
                     {isLoading && (
                         hasActivePdfSubmission ? (
                             // Special loading state for PDF processing
-                            <ThinkingMessage isPdfProcessing={true} />
+                            <ProcessingPdfMessage />
                         ) : (
                             messages.length > 0 &&
                             messages[messages.length - 1].role === 'user' && (
@@ -282,7 +302,7 @@ export function Chat({
                         chatId={id}
                         input={input}
                         setInput={setInput}
-                        handleSubmit={handleSubmit}
+                        handleSubmit={originalHandleSubmit}
                         isLoading={isLoading}
                         stop={stop}
                         attachments={attachments}

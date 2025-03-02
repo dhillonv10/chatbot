@@ -22,7 +22,7 @@ import {
 
 import { generateTitleFromUserMessage } from '../../actions';
 
-export const maxDuration = 300; // Increased to 300 seconds (5 minutes) to handle larger PDFs
+export const maxDuration = 300; // 5 minutes to handle larger PDFs
 
 export async function POST(request: Request) {
   console.log('=== API Route Started ===');
@@ -66,31 +66,27 @@ export async function POST(request: Request) {
 
   console.log('Preparing message for Claude with attachments');
 
-  // Convert attachments for Claude's API format
-  let formattedMessages = messages.map((message: Message) => {
+  // Convert to Claude's multimodal format
+  const formattedMessages = messages.map((message: Message) => {
     if (message.experimental_attachments?.length) {
-      // For messages with attachments, create a multipart content array
       return {
         role: message.role === 'user' ? 'user' : 'assistant',
         content: [
-          // Add each attachment as a document content part
           ...message.experimental_attachments.map(attachment => ({
-            type: 'document' as const,
+            type: 'document',
             source: {
-              type: 'url' as const,
+              type: 'url',
               media_type: attachment.contentType,
               url: attachment.url
             }
           })),
-          // Add the text content
           {
-            type: 'text' as const,
+            type: 'text',
             text: message.content
           }
         ]
       };
     } else {
-      // For regular messages, use simple text format
       return {
         role: message.role === 'user' ? 'user' : 'assistant',
         content: message.content
@@ -99,25 +95,32 @@ export async function POST(request: Request) {
   });
 
   console.log('Creating stream response with formatted messages:', 
-    JSON.stringify(formattedMessages, null, 2).substring(0, 500) + '...');
+    JSON.stringify(formattedMessages.slice(-2), null, 2));
 
-  const response = await customModel(model.apiIdentifier).invoke({
-    messages: formattedMessages,
-    options: { system: systemPrompt }
-  });
+  try {
+    const response = await customModel(model.apiIdentifier).invoke({
+      messages: formattedMessages,
+      options: { system: systemPrompt }
+    });
 
-  console.log('Stream created, sending response');
-  const streamResponse = new Response(response, {
-    headers: {
-      'Content-Type': 'text/event-stream',
-      'Cache-Control': 'no-cache, no-transform',
-      'Connection': 'keep-alive',
-      'Transfer-Encoding': 'chunked'
-    },
-  });
+    console.log('Stream created, sending response');
+    const streamResponse = new Response(response, {
+      headers: {
+        'Content-Type': 'text/event-stream',
+        'Cache-Control': 'no-cache, no-transform',
+        'Connection': 'keep-alive',
+      },
+    });
 
-  console.log('Response headers:', Object.fromEntries(streamResponse.headers.entries()));
-  return streamResponse;
+    console.log('Response headers:', Object.fromEntries(streamResponse.headers.entries()));
+    return streamResponse;
+  } catch (error) {
+    console.error('Error invoking Claude model:', error);
+    return new Response(JSON.stringify({ error: 'Failed to process with Claude' }), { 
+      status: 500,
+      headers: { 'Content-Type': 'application/json' }
+    });
+  }
 }
 
 export async function DELETE(request: Request) {

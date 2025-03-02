@@ -69,7 +69,7 @@ export async function POST(request: Request): Promise<NextResponse<UploadRespons
         try {
             console.log(`Uploading file: ${filename} (${file.type})`);
             
-            // Use only supported options in put command
+            // Upload to Vercel Blob with public access
             const data = await put(filename, fileBuffer, {
                 access: 'public',
                 contentType: file.type,

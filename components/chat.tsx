@@ -14,6 +14,8 @@ import { PreviewMessage, ThinkingMessage, ProcessingPdfMessage } from '@/compone
 import { useScrollToBottom } from '@/components/use-scroll-to-bottom';
 import type { Vote } from '@/lib/db/schema';
 import { fetcher } from '@/lib/utils';
+import type { ExtendedMessage } from '@/types/extended-message';
+import { isPdfAttachment } from '@/types/extended-message';
 
 import { Block, type UIBlock } from './block';
 import { BlockStreamHandler } from './block-stream-handler';
@@ -22,10 +24,7 @@ import { Overview } from './overview';
 
 // Helper function to check if there are PDF attachments
 function hasPdfAttachments(attachments: Attachment[]) {
-  return attachments.some(attachment => 
-    attachment.contentType === 'application/pdf' || 
-    (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'))
-  );
+  return attachments.some(attachment => isPdfAttachment(attachment));
 }
 
 // Add a safe check function for experimental_attachments
@@ -107,7 +106,7 @@ export function Chat({
                                     const lastMsg = prev[prev.length - 1];
                                     if (lastMsg?.id === data.id) {
                                         // Add attachment info to assistant messages
-                                        const assistantMessage = {
+                                        const assistantMessage: ExtendedMessage = {
                                             ...lastMsg,
                                             content: data.content,
                                             // Track if previous message had attachments - safely check
@@ -119,7 +118,7 @@ export function Chat({
                                         return [...prev.slice(0, -1), assistantMessage];
                                     } else {
                                         // Same attachment tracking for new messages
-                                        const assistantMessage = {
+                                        const assistantMessage: ExtendedMessage = {
                                             ...data,
                                             previousMessageHasAttachments: prev.length > 0 && 
                                               hasAttachments(prev[prev.length - 1]),
@@ -222,8 +221,7 @@ export function Chat({
         // If there's no input text but there are PDF attachments, add a default message
         if (input.trim() === '' && hasPdfs) {
             const pdfNames = attachments
-                .filter(a => a.contentType === 'application/pdf' || 
-                          (a.name && a.name.toLowerCase().endsWith('.pdf')))
+                .filter(a => isPdfAttachment(a))
                 .map(a => a.name)
                 .join(', ');
                 

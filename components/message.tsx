@@ -7,6 +7,8 @@ import { motion } from 'framer-motion';
 import type { Dispatch, SetStateAction } from 'react';
 
 import type { Vote } from '@/lib/db/schema';
+import type { ExtendedMessage } from '@/types/extended-message';
+import { isPreviousMessagePdf } from '@/types/extended-message';
 
 import type { UIBlock } from './block';
 import { DocumentToolCall, DocumentToolResult } from './document';
@@ -31,23 +33,19 @@ export const PreviewMessage = ({
   vote: Vote | undefined;
   isLoading: boolean;
 }) => {
+  // Cast to our extended type that includes the additional properties
+  const extendedMessage = message as ExtendedMessage;
+  
   // Function to detect if this message is a PDF analysis response
   const isPdfAnalysisResponse = () => {
-    // Check if the previous message has PDF attachments
-    const isPreviousMessagePdf = message.role === 'assistant' && 
-      message.previousMessageHasAttachments &&
-      message.previousMessageAttachments?.some(att => 
-        att.contentType === 'application/pdf' || 
-        (att.name && att.name.toLowerCase().endsWith('.pdf'))
-      );
-    
-    // If the message content mentions PDF analysis
+    // Check if the message itself mentions PDF
     const contentMentionsPdf = typeof message.content === 'string' && 
       (message.content.includes('PDF') || 
        message.content.includes('document') ||
        message.content.toLowerCase().includes('based on the pdf'));
     
-    return isPreviousMessagePdf || contentMentionsPdf;
+    // Use the helper to check if the previous message had PDF attachments
+    return isPreviousMessagePdf(extendedMessage) || contentMentionsPdf;
   };
 
   return (

@@ -66,19 +66,19 @@ export async function POST(request: Request) {
 
   console.log('Preparing message for Claude with attachments');
 
-  // Convert to Claude's multimodal format
+  // Convert to Claude's multimodal format - FIXED VERSION
   const formattedMessages = messages.map((message: Message) => {
     if (message.experimental_attachments?.length) {
       return {
         role: message.role === 'user' ? 'user' : 'assistant',
         content: [
           ...message.experimental_attachments.map(attachment => ({
-            type: 'document',
+            type: "document",
             source: {
-              type: 'url',
-              media_type: attachment.contentType,
+              type: "url",
               url: attachment.url
-            }
+            },
+            media_type: attachment.contentType // Moved media_type out of source object
           })),
           {
             type: 'text',

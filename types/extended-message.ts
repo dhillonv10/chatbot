@@ -1,5 +1,4 @@
-// Create this file: types/extended-message.ts 
-
+// types/extended-message.ts 
 import type { Attachment, Message } from 'ai';
 
 // Create an extended version of the Message type with our custom properties
@@ -19,6 +18,11 @@ export function containsPdfAttachments(message: Message | ExtendedMessage): bool
   if (!message.experimental_attachments?.length) return false;
   
   return message.experimental_attachments.some(att => isPdfAttachment(att));
+}
+
+// Helper function to check if attachments array contains PDFs
+export function hasPdfAttachments(attachments: Attachment[]): boolean {
+  return attachments.some(attachment => isPdfAttachment(attachment));
 }
 
 // Helper function to safely check if previous message had PDF attachments

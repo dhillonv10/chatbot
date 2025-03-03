@@ -42,10 +42,15 @@ const suggestedActions = [
   },
 ];
 
-// Function to check if attachment is a PDF
-function isPdfAttachment(attachment: Attachment) {
+// Helper function for PDF detection
+function isPdfAttachment(attachment: Attachment): boolean {
   return attachment.contentType === 'application/pdf' || 
          (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'));
+}
+
+// Helper function to check if attachments array contains PDFs
+function hasPdfAttachments(attachments: Attachment[]): boolean {
+  return attachments.some(attachment => isPdfAttachment(attachment));
 }
 
 export function MultimodalInput({
@@ -161,7 +166,7 @@ export function MultimodalInput({
     chatId,
   ]);
 
-  const uploadFile = async (file: File) => {
+  const uploadFile = async (file: File): Promise<Attachment | undefined> => {
     const formData = new FormData();
     formData.append('file', file);
 
@@ -182,7 +187,11 @@ export function MultimodalInput({
       const { url, contentType, name } = data;
       
       console.log(`File uploaded successfully: ${url} (${contentType})`);
-      return { url, contentType, name };
+      return { 
+        url, 
+        contentType, 
+        name 
+      } as Attachment; // Use "as Attachment" to ensure correct typing
     } catch (error) {
       console.error('Upload error:', error);
       toast.error('Failed to upload file, please try again!');
@@ -201,8 +210,9 @@ export function MultimodalInput({
         const uploadPromises = files.map((file) => uploadFile(file));
         const uploadedAttachments = await Promise.all(uploadPromises);
         
+        // Fix: Properly type the filtered array
         const successfullyUploadedAttachments = uploadedAttachments
-          .filter(Boolean);
+          .filter((attachment): attachment is Attachment => attachment !== undefined);
 
         if (successfullyUploadedAttachments.length > 0) {
           setAttachments((currentAttachments) => [
@@ -212,8 +222,7 @@ export function MultimodalInput({
           
           // Check for PDF uploads and set auto-prompt
           const pdfs = successfullyUploadedAttachments.filter(att => 
-            att.contentType === 'application/pdf' || 
-            (att.name && att.name.toLowerCase().endsWith('.pdf'))
+            isPdfAttachment(att)
           );
           
           if (pdfs.length > 0 && input === '') {

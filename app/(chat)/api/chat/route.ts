@@ -77,8 +77,7 @@ export async function POST(request: Request) {
             source: {
               type: "url",
               url: attachment.url
-            },
-            media_type: attachment.contentType // Moved media_type out of source object
+            }
           })),
           {
             type: 'text',

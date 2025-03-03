@@ -42,10 +42,18 @@ const suggestedActions = [
   },
 ];
 
-// Helper function for PDF detection
+// Helper function for PDF detection with proper null/undefined checks
 function isPdfAttachment(attachment: Attachment): boolean {
-  return attachment.contentType === 'application/pdf' || 
-         (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'));
+  // Check if contentType exists and is a PDF
+  const isPdfContentType = typeof attachment.contentType === 'string' && 
+                          attachment.contentType === 'application/pdf';
+  
+  // Check if name exists and ends with .pdf
+  const isPdfFileName = typeof attachment.name === 'string' && 
+                       attachment.name.toLowerCase().endsWith('.pdf');
+  
+  // Return true if either condition is met
+  return Boolean(isPdfContentType || isPdfFileName);
 }
 
 // Helper function to check if attachments array contains PDFs
@@ -138,7 +146,7 @@ export function MultimodalInput({
     
     // If we just uploaded a PDF, suggest an analysis prompt
     if (pdfAttachments.length > 0 && input === '') {
-      const fileNames = pdfAttachments.map(pdf => pdf.name).join(', ');
+      const fileNames = pdfAttachments.map(pdf => pdf.name || 'PDF').join(', ');
       const suggestedPrompt = `Please analyze this PDF${pdfAttachments.length > 1 ? 's' : ''}: ${fileNames}`;
       setInput(suggestedPrompt);
     }
@@ -226,7 +234,7 @@ export function MultimodalInput({
           );
           
           if (pdfs.length > 0 && input === '') {
-            const fileNames = pdfs.map(pdf => pdf.name).join(', ');
+            const fileNames = pdfs.map(pdf => pdf.name || 'PDF').join(', ');
             setInput(`Please analyze this PDF${pdfs.length > 1 ? 's' : ''}: ${fileNames}`);
           }
           
@@ -302,7 +310,7 @@ export function MultimodalInput({
       {(attachments.length > 0 || uploadQueue.length > 0) && (
         <div className="flex flex-row gap-2 overflow-x-scroll items-end">
           {attachments.map((attachment) => (
-            <PreviewAttachment key={attachment.name} attachment={attachment} />
+            <PreviewAttachment key={attachment.name || attachment.url} attachment={attachment} />
           ))}
 
           {uploadQueue.map((filename) => (

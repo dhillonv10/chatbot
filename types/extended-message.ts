@@ -9,8 +9,16 @@ export interface ExtendedMessage extends Message {
 
 // Helper function to safely check for PDF attachments
 export function isPdfAttachment(attachment: Attachment): boolean {
-  return attachment.contentType === 'application/pdf' || 
-         (attachment.name && attachment.name.toLowerCase().endsWith('.pdf'));
+  // Check if contentType exists and is a PDF
+  const isPdfContentType = typeof attachment.contentType === 'string' && 
+                          attachment.contentType === 'application/pdf';
+  
+  // Check if name exists and ends with .pdf
+  const isPdfFileName = typeof attachment.name === 'string' && 
+                       attachment.name.toLowerCase().endsWith('.pdf');
+  
+  // Return true if either condition is met
+  return Boolean(isPdfContentType || isPdfFileName);
 }
 
 // Helper function to check if a message contains PDF attachments

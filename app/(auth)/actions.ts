@@ -8,6 +8,9 @@ import { signIn } from './auth';
 
 import { updateUserMedicalHistory } from '@/lib/db/queries';
 
+import { auth, signIn } from './auth';
+import { createUser, getUser, updateUserMedicalHistory } from '@/lib/db/queries';
+
 const authFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),

@@ -1,58 +1,17 @@
+// app/(auth)/actions.ts - Complete file with correct imports
+
 'use server';
 
 import { z } from 'zod';
 
-import { createUser, getUser } from '@/lib/db/queries';
-
-import { signIn } from './auth';
-
-import { updateUserMedicalHistory } from '@/lib/db/queries';
+import { createUser, getUser, updateUserMedicalHistory } from '@/lib/db/queries';
 
 import { auth, signIn } from './auth';
-import { createUser, getUser, updateUserMedicalHistory } from '@/lib/db/queries';
 
 const authFormSchema = z.object({
   email: z.string().email(),
   password: z.string().min(6),
 });
-
-// Add this new interface
-export interface MedicalHistoryActionState {
-  status: 'idle' | 'in_progress' | 'success' | 'failed' | 'invalid_data';
-}
-
-// Add this new action to save medical history
-export const saveMedicalHistory = async (
-  _: MedicalHistoryActionState,
-  formData: FormData,
-): Promise<MedicalHistoryActionState> => {
-  try {
-    const session = await auth();
-    if (!session || !session.user || !session.user.id) {
-      return { status: 'failed' };
-    }
-
-    const allergies = formData.get('allergies') as string;
-    const medications = formData.get('medications') as string;
-    const conditions = formData.get('conditions') as string;
-    const familyHistory = formData.get('familyHistory') as string;
-
-    // Create a structured medical history object
-    const medicalHistory = JSON.stringify({
-      allergies,
-      medications,
-      conditions,
-      familyHistory,
-    });
-
-    await updateUserMedicalHistory(session.user.id, medicalHistory);
-
-    return { status: 'success' };
-  } catch (error) {
-    console.error('Failed to save medical history:', error);
-    return { status: 'failed' };
-  }
-};
 
 export interface LoginActionState {
   status: 'idle' | 'in_progress' | 'success' | 'failed' | 'invalid_data';
@@ -123,6 +82,42 @@ export const register = async (
       return { status: 'invalid_data' };
     }
 
+    return { status: 'failed' };
+  }
+};
+
+export interface MedicalHistoryActionState {
+  status: 'idle' | 'in_progress' | 'success' | 'failed' | 'invalid_data';
+}
+
+export const saveMedicalHistory = async (
+  _: MedicalHistoryActionState,
+  formData: FormData,
+): Promise<MedicalHistoryActionState> => {
+  try {
+    const session = await auth();
+    if (!session || !session.user || !session.user.id) {
+      return { status: 'failed' };
+    }
+
+    const allergies = formData.get('allergies') as string;
+    const medications = formData.get('medications') as string;
+    const conditions = formData.get('conditions') as string;
+    const familyHistory = formData.get('familyHistory') as string;
+
+    // Create a structured medical history object
+    const medicalHistory = JSON.stringify({
+      allergies,
+      medications,
+      conditions,
+      familyHistory,
+    });
+
+    await updateUserMedicalHistory(session.user.id, medicalHistory);
+
+    return { status: 'success' };
+  } catch (error) {
+    console.error('Failed to save medical history:', error);
     return { status: 'failed' };
   }
 };

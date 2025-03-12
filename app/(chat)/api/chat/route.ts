@@ -14,7 +14,6 @@ import {
   getChatById,
   saveChat,
   saveMessages,
-  getUserMedicalHistory,
 } from '@/lib/db/queries';
 import {
   generateUUID,
@@ -44,9 +43,6 @@ export async function POST(request: Request) {
   if (!model) {
     return new Response('Model not found', { status: 404 });
   }
-
-  // Fetch the user's medical history
-  const medicalHistory = await getUserMedicalHistory(session.user.id);
 
   const coreMessages = convertToCoreMessages(messages);
   const userMessage = getMostRecentUserMessage(coreMessages);
@@ -97,34 +93,13 @@ export async function POST(request: Request) {
     }
   });
 
-  // Create a custom system prompt that includes the medical history
-  let customSystemPrompt = systemPrompt;
-  if (medicalHistory) {
-    try {
-      const parsedHistory = JSON.parse(medicalHistory);
-      const formattedHistory = `
-User Medical History (for educational context only):
-- Allergies: ${parsedHistory.allergies || 'None reported'}
-- Current Medications: ${parsedHistory.medications || 'None reported'}
-- Medical Conditions: ${parsedHistory.conditions || 'None reported'}
-- Family Medical History: ${parsedHistory.familyHistory || 'None reported'}
-      `;
-      
-      // Add medical history to the system prompt
-      customSystemPrompt = `${systemPrompt}\n\n${formattedHistory}`;
-    } catch (error) {
-      console.error('Error parsing medical history:', error);
-      // Continue with the original system prompt if there's an error
-    }
-  }
-
   console.log('Creating stream response with formatted messages:', 
     JSON.stringify(formattedMessages.slice(-2), null, 2));
 
   try {
     const response = await customModel(model.apiIdentifier).invoke({
       messages: formattedMessages,
-      options: { system: customSystemPrompt } // Use the customized system prompt
+      options: { system: systemPrompt }
     });
 
     console.log('Stream created, sending response');

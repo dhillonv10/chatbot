@@ -279,27 +279,3 @@ export async function getSuggestionsByDocumentId({
     throw error;
   }
 }
-
-export async function updateUserMedicalHistory(userId: string, medicalHistory: string) {
-  try {
-    return await db.update(user)
-      .set({ medicalHistory })
-      .where(eq(user.id, userId));
-  } catch (error) {
-    console.error('Failed to update user medical history in database');
-    throw error;
-  }
-}
-
-export async function getUserMedicalHistory(userId: string): Promise<string | null> {
-  try {
-    const [userRecord] = await db.select({ medicalHistory: user.medicalHistory })
-      .from(user)
-      .where(eq(user.id, userId));
-    
-    return userRecord?.medicalHistory || null;
-  } catch (error) {
-    console.error('Failed to get user medical history from database');
-    throw error;
-  }
-}

@@ -33,15 +33,10 @@ export default function Page() {
     } else if (state.status === 'success') {
       toast.success('Account created successfully');
       setIsSuccessful(true);
-      // Redirect to medical history form instead of refreshing
-      if (state.needsMedicalHistory) {
-        router.push('/medical-history');
-      } else {
-        router.refresh();
-      }
+      router.refresh();
     }
   }, [state, router]);
-  
+
   const handleSubmit = (formData: FormData) => {
     setEmail(formData.get('email') as string);
     formAction(formData);

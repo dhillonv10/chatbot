@@ -9,10 +9,10 @@ export interface Model {
 
 export const models: Array<Model> = [
   {
-    id: 'claude-3-5-sonnet',
-    label: 'Claude 3.5 Sonnet',
-    apiIdentifier: 'claude-3-5-sonnet-20241022',
-    description: 'Latest Claude model optimized for complex tasks with excellent performance',
+    id: 'claude-sonnet-4-5',
+    label: 'Claude Sonnet 4.5',
+    apiIdentifier: 'claude-sonnet-4-5-20250929',
+    description: 'Latest Claude Sonnet 4.5 model with superior performance and capabilities',
   },
   {
     id: 'claude-3-5-haiku',
@@ -22,4 +22,4 @@ export const models: Array<Model> = [
   }
 ] as const;
 
-export const DEFAULT_MODEL_NAME: string = 'claude-3-5-sonnet';
+export const DEFAULT_MODEL_NAME: string = 'claude-sonnet-4-5';

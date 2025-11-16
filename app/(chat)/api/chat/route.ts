@@ -19,6 +19,7 @@ import {
   generateUUID,
   getMostRecentUserMessage,
 } from '@/lib/utils';
+import { convertAttachmentsToAnthropicFormat } from '@/lib/attachment-utils';
 
 import { generateTitleFromUserMessage } from '../../actions';
 
@@ -66,34 +67,36 @@ export async function POST(request: Request) {
 
   console.log('Preparing message for Claude with attachments');
 
-  // Convert to Claude's multimodal format - FIXED VERSION
-  const formattedMessages = messages.map((message: Message) => {
-    if (message.experimental_attachments?.length) {
-      return {
-        role: message.role === 'user' ? 'user' : 'assistant',
-        content: [
-          ...message.experimental_attachments.map(attachment => ({
-            type: "document",
-            source: {
-              type: "url",
-              url: attachment.url
-            }
-          })),
-          {
-            type: 'text',
-            text: message.content
-          }
-        ]
-      };
-    } else {
-      return {
-        role: message.role === 'user' ? 'user' : 'assistant',
-        content: message.content
-      };
-    }
-  });
+  // Convert to Claude's multimodal format with proper PDF/image handling
+  const formattedMessages = await Promise.all(
+    messages.map(async (message: Message) => {
+      if (message.experimental_attachments?.length) {
+        // Convert attachments to proper Anthropic format
+        // PDFs will be base64 encoded, images will use URLs
+        const anthropicContent = await convertAttachmentsToAnthropicFormat(
+          message.experimental_attachments
+        );
 
-  console.log('Creating stream response with formatted messages:', 
+        return {
+          role: message.role === 'user' ? 'user' : 'assistant',
+          content: [
+            ...anthropicContent,
+            {
+              type: 'text',
+              text: message.content
+            }
+          ]
+        };
+      } else {
+        return {
+          role: message.role === 'user' ? 'user' : 'assistant',
+          content: message.content
+        };
+      }
+    })
+  );
+
+  console.log('Creating stream response with formatted messages:',
     JSON.stringify(formattedMessages.slice(-2), null, 2));
 
   try {

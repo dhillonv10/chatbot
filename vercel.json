@@ -1,0 +1,13 @@
+{
+  "functions": {
+    "app/(chat)/api/chat/route.ts": {
+      "maxDuration": 300
+    },
+    "app/(chat)/api/files/upload/route.ts": {
+      "maxDuration": 60
+    },
+    "app/(chat)/api/document/route.ts": {
+      "maxDuration": 60
+    }
+  }
+}

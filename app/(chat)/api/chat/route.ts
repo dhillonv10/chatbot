@@ -23,7 +23,10 @@ import { convertAttachmentsToAnthropicFormat } from '@/lib/attachment-utils';
 
 import { generateTitleFromUserMessage } from '../../actions';
 
-export const maxDuration = 300; // 5 minutes to handle larger PDFs
+// Route Segment Config - Required for Vercel to respect timeout settings
+export const maxDuration = 300; // 5 minutes (requires Vercel Pro plan or higher)
+export const dynamic = 'force-dynamic'; // Disable static optimization for streaming
+export const runtime = 'nodejs'; // Use Node.js runtime (required for streaming)
 
 export async function POST(request: Request) {
   console.log('=== API Route Started ===');

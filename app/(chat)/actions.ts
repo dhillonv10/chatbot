@@ -23,7 +23,7 @@ export async function generateTitleFromUserMessage({
   message: CoreUserMessage;
 }) {
   const response = await anthropic.messages.create({
-    model: 'claude-3-5-sonnet-20241022',
+    model: 'claude-sonnet-4-5-20250929',
     system: `
     - you will generate a short title based on the first message a user begins a conversation with
     - ensure it is not more than 80 characters long
@@ -33,5 +33,13 @@ export async function generateTitleFromUserMessage({
     max_tokens: 100,
   });
 
-  return response.content[0].text;
+  // Handle different content block types from newer SDK
+  const firstBlock = response.content[0];
+  if (firstBlock.type === 'text') {
+    return firstBlock.text;
+  }
+
+  // Fallback if first block is not text (shouldn't happen with this prompt)
+  const textBlock = response.content.find(block => block.type === 'text');
+  return textBlock?.type === 'text' ? textBlock.text : 'New Conversation';
 }

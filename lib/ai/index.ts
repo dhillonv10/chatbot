@@ -86,14 +86,18 @@ export const customModel = (apiIdentifier: string) => {
             for await (const chunk of response) {
               if (streamClosed) break;
 
-              if (chunk.type === 'content_block_delta' && chunk.delta?.text) {
-                try {
-                  fullContent += chunk.delta.text;
-                  const chunkData = createChunk(messageId, fullContent);
-                  controller.enqueue(encoder.encode(encodeSSEMessage(chunkData)));
-                } catch (error) {
-                  console.error('Chunk processing error:', error);
-                  continue;
+              // Handle content block deltas with proper type checking
+              if (chunk.type === 'content_block_delta') {
+                // Check if delta is a text delta (newer SDK has stricter types)
+                if (chunk.delta.type === 'text_delta' && 'text' in chunk.delta) {
+                  try {
+                    fullContent += chunk.delta.text;
+                    const chunkData = createChunk(messageId, fullContent);
+                    controller.enqueue(encoder.encode(encodeSSEMessage(chunkData)));
+                  } catch (error) {
+                    console.error('Chunk processing error:', error);
+                    continue;
+                  }
                 }
               } else if (chunk.type === 'message_stop') {
                 controller.enqueue(encoder.encode('data: [DONE]\n\n'));
